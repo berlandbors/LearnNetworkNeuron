@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Одиночный нейрон (перцептрон)</title>
+  <style>
+    /* ── Переменные темы ── */
+    :root {
+      --bg-primary:   #1a1a2e;
+      --bg-secondary: #16213e;
+      --bg-card:      #0f3460;
+      --bg-input:     #1a1a3e;
+      --accent:       #e94560;
+      --accent2:      #0f9b8e;
+      --accent3:      #f5a623;
+      --text-primary: #e0e0e0;
+      --text-muted:   #8892a4;
+      --positive:     #4fc3f7;
+      --negative:     #ef5350;
+      --border:       #2a2a5e;
+      --radius:       12px;
+      --shadow:       0 4px 24px rgba(0,0,0,.5);
+      --transition:   .25s ease;
+    }
+
+    /* ── Сброс и базовые стили ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 0 0 60px;
+    }
+
+    /* ── Шапка ── */
+    header {
+      background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
+      border-bottom: 1px solid var(--border);
+      padding: 28px 32px 24px;
+      text-align: center;
+    }
+    header h1 {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 700;
+      letter-spacing: .5px;
+      background: linear-gradient(90deg, var(--positive), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      color: var(--text-muted);
+      margin-top: 8px;
+      font-size: .95rem;
+      max-width: 680px;
+      margin-inline: auto;
+      line-height: 1.6;
+    }
+
+    /* ── Основная сетка ── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 24px auto 0;
+      padding: 0 20px;
+    }
+    @media (max-width: 860px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Карточки ── */
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: .8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--accent2);
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Ползунки ── */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .slider-row {
+      display: grid;
+      grid-template-columns: 70px 1fr 52px;
+      align-items: center;
+      gap: 10px;
+    }
+    .slider-label {
+      font-size: .85rem;
+      color: var(--text-muted);
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+    }
+    .slider-value {
+      font-size: .85rem;
+      font-family: 'Courier New', monospace;
+      color: var(--text-primary);
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 6px;
+      text-align: center;
+      min-width: 48px;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: var(--bg-input);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+      transition: background var(--transition);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent2);
+      cursor: pointer;
+      border: 2px solid var(--bg-primary);
+      transition: background var(--transition), transform var(--transition);
+    }
+    input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.2); background: var(--positive); }
+    input[type="range"]::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent2);
+      cursor: pointer;
+      border: 2px solid var(--bg-primary);
+    }
+
+    /* ── Секция разделителя ── */
+    .section-sep {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+
+    /* ── Выбор функции активации ── */
+    .activation-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .act-btn {
+      flex: 1 1 auto;
+      min-width: 60px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-input);
+      color: var(--text-muted);
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      text-align: center;
+      font-family: 'Courier New', monospace;
+    }
+    .act-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+    .act-btn.active {
+      background: var(--accent2);
+      border-color: var(--accent2);
+      color: #fff;
+    }
+
+    /* ── Правая колонка ── */
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Канвасы ── */
+    canvas {
+      display: block;
+      width: 100%;
+      border-radius: 10px;
+      background: var(--bg-primary);
+    }
+    #neuronCanvas { aspect-ratio: 16/9; }
+    #activationCanvas { aspect-ratio: 3/1; }
+
+    /* ── Формула ── */
+    .formula-box {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-family: 'Courier New', monospace;
+      font-size: .92rem;
+      line-height: 1.9;
+      color: var(--text-primary);
+    }
+    .formula-box .fline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+    .fval { color: var(--positive); font-weight: 700; }
+    .fop  { color: var(--text-muted); }
+    .fresult { color: var(--accent3); font-weight: 700; }
+    .fout   { color: var(--accent); font-weight: 700; font-size: 1.05rem; }
+    .flabel { color: var(--text-muted); font-size: .8rem; margin-left: 6px; }
+
+    /* ── Разбор по шагам ── */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+      gap: 12px;
+    }
+    .step-card {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      transition: border-color var(--transition);
+    }
+    .step-card:hover { border-color: var(--accent2); }
+    .step-num {
+      font-size: .7rem;
+      color: var(--accent2);
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .step-expr {
+      font-family: 'Courier New', monospace;
+      font-size: .88rem;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .step-val {
+      font-family: 'Courier New', monospace;
+      font-size: 1.05rem;
+      color: var(--accent3);
+      font-weight: 700;
+    }
+
+    /* ── Итоговый результат ── */
+    .result-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+      background: linear-gradient(135deg, #0f3460, #16213e);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 24px;
+    }
+    .result-label { color: var(--text-muted); font-size: .9rem; }
+    .result-z {
+      font-family: 'Courier New', monospace;
+      font-size: 1.4rem;
+      color: var(--accent3);
+      font-weight: 700;
+    }
+    .result-arrow { color: var(--text-muted); font-size: 1.2rem; }
+    .result-act {
+      font-size: .85rem;
+      color: var(--text-muted);
+      font-family: 'Courier New', monospace;
+    }
+    .result-out {
+      font-family: 'Courier New', monospace;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      min-width: 90px;
+      text-align: right;
+    }
+
+    /* ── Пояснительный блок ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px,1fr));
+      gap: 14px;
+      max-width: 1200px;
+      margin: 20px auto 0;
+      padding: 0 20px;
+    }
+    .info-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .info-card h3 {
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent2);
+      margin-bottom: 8px;
+    }
+    .info-card p {
+      font-size: .83rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ Шапка страницы ══ -->
+<header>
+  <h1>🧠 Одиночный нейрон (перцептрон)</h1>
+  <p>
+    Интерактивная визуализация работы одного искусственного нейрона.
+    Управляйте входными значениями, весами и смещением, чтобы понять,
+    как нейрон вычисляет взвешенную сумму и применяет функцию активации.
+  </p>
+</header>
+
+<!-- ══ Основная сетка управления + визуализация ══ -->
+<div class="main-grid">
+
+  <!-- ─── Левая панель управления ─── -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <!-- Входные значения -->
+    <div class="card">
+      <div class="card-title">Входные значения (xᵢ)</div>
+      <div class="slider-group" id="inputSliders">
+        <!-- x1 -->
+        <div class="slider-row">
+          <span class="slider-label">x₁</span>
+          <input type="range" id="x1" min="-1" max="1" step="0.01" value="0.8" />
+          <span class="slider-value" id="x1Val">0.80</span>
+        </div>
+        <!-- x2 -->
+        <div class="slider-row">
+          <span class="slider-label">x₂</span>
+          <input type="range" id="x2" min="-1" max="1" step="0.01" value="-0.5" />
+          <span class="slider-value" id="x2Val">-0.50</span>
+        </div>
+        <!-- x3 -->
+        <div class="slider-row">
+          <span class="slider-label">x₃</span>
+          <input type="range" id="x3" min="-1" max="1" step="0.01" value="0.3" />
+          <span class="slider-value" id="x3Val">0.30</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Веса -->
+    <div class="card">
+      <div class="card-title">Веса (wᵢ)</div>
+      <div class="slider-group">
+        <div class="slider-row">
+          <span class="slider-label">w₁</span>
+          <input type="range" id="w1" min="-2" max="2" step="0.01" value="0.6" />
+          <span class="slider-value" id="w1Val">0.60</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label">w₂</span>
+          <input type="range" id="w2" min="-2" max="2" step="0.01" value="-1.2" />
+          <span class="slider-value" id="w2Val">-1.20</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label">w₃</span>
+          <input type="range" id="w3" min="-2" max="2" step="0.01" value="1.5" />
+          <span class="slider-value" id="w3Val">1.50</span>
+        </div>
+      </div>
+
+      <div class="section-sep"></div>
+
+      <!-- Смещение -->
+      <div class="card-title" style="margin-bottom:12px;">Смещение (bias)</div>
+      <div class="slider-row">
+        <span class="slider-label">bias</span>
+        <input type="range" id="bias" min="-2" max="2" step="0.01" value="0.5" />
+        <span class="slider-value" id="biasVal">0.50</span>
+      </div>
+    </div>
+
+    <!-- Функция активации -->
+    <div class="card">
+      <div class="card-title">Функция активации</div>
+      <div class="activation-buttons">
+        <button class="act-btn active" data-fn="sigmoid">Sigmoid</button>
+        <button class="act-btn" data-fn="relu">ReLU</button>
+        <button class="act-btn" data-fn="tanh">Tanh</button>
+        <button class="act-btn" data-fn="step">Step</button>
+      </div>
+      <!-- График функции активации -->
+      <div style="margin-top:14px;">
+        <canvas id="activationCanvas"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─── Правая колонка: схема нейрона + расчёты ─── -->
+  <div class="right-col">
+
+    <!-- Схема нейрона -->
+    <div class="card">
+      <div class="card-title">Схема нейрона</div>
+      <canvas id="neuronCanvas"></canvas>
+    </div>
+
+    <!-- Формула и текущие значения -->
+    <div class="card">
+      <div class="card-title">Формула вычисления</div>
+      <div class="formula-box" id="formulaBox">
+        <!-- Заполняется из JS -->
+      </div>
+    </div>
+
+    <!-- Пошаговый разбор -->
+    <div class="card">
+      <div class="card-title">Пошаговый разбор</div>
+      <div class="steps-grid" id="stepsGrid">
+        <!-- Заполняется из JS -->
+      </div>
+    </div>
+
+    <!-- Итоговый результат -->
+    <div class="result-bar" id="resultBar">
+      <div>
+        <div class="result-label">Взвешенная сумма (z)</div>
+        <div class="result-z" id="resZ">0.00</div>
+      </div>
+      <div class="result-arrow">→</div>
+      <div>
+        <div class="result-label">Функция активации</div>
+        <div class="result-act" id="resAct">sigmoid(z)</div>
+      </div>
+      <div class="result-arrow">→</div>
+      <div>
+        <div class="result-label">Выход нейрона (y)</div>
+        <div class="result-out" id="resOut">0.50</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ Пояснительные блоки ══ -->
+<div class="info-grid">
+  <div class="info-card">
+    <h3>Что такое нейрон?</h3>
+    <p>
+      Искусственный нейрон — математическая модель биологического нейрона.
+      Он получает несколько числовых сигналов (входы), умножает каждый на
+      соответствующий вес, суммирует результаты, добавляет смещение и
+      пропускает сумму через функцию активации.
+    </p>
+  </div>
+  <div class="info-card">
+    <h3>Веса и смещение</h3>
+    <p>
+      Веса (w) определяют важность каждого входа. Положительный вес усиливает
+      сигнал, отрицательный — инвертирует. Смещение (bias) сдвигает порог
+      срабатывания нейрона независимо от входных данных.
+    </p>
+  </div>
+  <div class="info-card">
+    <h3>Sigmoid</h3>
+    <p>
+      σ(z) = 1 / (1 + e⁻ᶻ). Сжимает любое число в диапазон (0, 1).
+      Часто используется в задачах бинарной классификации для получения
+      вероятностной интерпретации выхода.
+    </p>
+  </div>
+  <div class="info-card">
+    <h3>ReLU</h3>
+    <p>
+      ReLU(z) = max(0, z). Самая популярная функция в глубоких сетях.
+      Проста в вычислении, не страдает от проблемы затухающего градиента
+      в положительной области.
+    </p>
+  </div>
+  <div class="info-card">
+    <h3>Tanh</h3>
+    <p>
+      tanh(z) = (eᶻ − e⁻ᶻ) / (eᶻ + e⁻ᶻ). Выход в диапазоне (−1, 1),
+      симметричен относительно нуля. Удобен, когда нужны и положительные,
+      и отрицательные выходные значения.
+    </p>
+  </div>
+  <div class="info-card">
+    <h3>Step (пороговая)</h3>
+    <p>
+      Step(z) = 1, если z ≥ 0, иначе 0. Исторически первая функция
+      активации, используется в классическом перцептроне Розенблатта.
+      Не дифференцируема, поэтому не применяется при обучении через
+      градиентный спуск.
+    </p>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   Утилиты
+═══════════════════════════════════════════════════ */
+
+// Форматирование числа до 4 знаков с явным знаком «+» для положительных
+function fmt(v) { return (v >= 0 ? '+' : '') + v.toFixed(4); }
+// Короткий формат для отображения в ползунках
+function fmtShort(v) { return v.toFixed(2); }
+
+/* ═══════════════════════════════════════════════════
+   Функции активации и их производные
+═══════════════════════════════════════════════════ */
+
+const activations = {
+  sigmoid: {
+    fn:   z => 1 / (1 + Math.exp(-z)),
+    name: 'sigmoid(z)',
+    label: 'Sigmoid: σ(z) = 1 / (1 + e⁻ᶻ)',
+    range: [-6, 6],
+    yRange: [-0.1, 1.1]
+  },
+  relu: {
+    fn:   z => Math.max(0, z),
+    name: 'ReLU(z)',
+    label: 'ReLU(z) = max(0, z)',
+    range: [-3, 3],
+    yRange: [-0.3, 3.3]
+  },
+  tanh: {
+    fn:   z => Math.tanh(z),
+    name: 'tanh(z)',
+    label: 'tanh(z) = (eᶻ − e⁻ᶻ) / (eᶻ + e⁻ᶻ)',
+    range: [-4, 4],
+    yRange: [-1.2, 1.2]
+  },
+  step: {
+    fn:   z => (z >= 0 ? 1 : 0),
+    name: 'step(z)',
+    label: 'Step(z) = 1 если z ≥ 0, иначе 0',
+    range: [-3, 3],
+    yRange: [-0.2, 1.4]
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   Состояние приложения
+═══════════════════════════════════════════════════ */
+
+const state = {
+  x1: 0.8, x2: -0.5, x3: 0.3,
+  w1: 0.6, w2: -1.2, w3: 1.5,
+  bias: 0.5,
+  activationKey: 'sigmoid',
+  // Анимация: целевой z и текущий (для плавного перехода)
+  zTarget: 0,
+  zCurrent: 0,
+  yCurrent: 0,
+  rafId: null
+};
+
+/* ═══════════════════════════════════════════════════
+   Элементы DOM
+═══════════════════════════════════════════════════ */
+
+const sliders = ['x1','x2','x3','w1','w2','w3','bias'];
+const neuronCanvas     = document.getElementById('neuronCanvas');
+const activationCanvas = document.getElementById('activationCanvas');
+const nCtx  = neuronCanvas.getContext('2d');
+const aCtx  = activationCanvas.getContext('2d');
+
+/* ═══════════════════════════════════════════════════
+   Привязка ползунков
+═══════════════════════════════════════════════════ */
+
+sliders.forEach(id => {
+  const slider = document.getElementById(id);
+  const valEl  = document.getElementById(id + 'Val');
+  // Инициализация отображаемого значения
+  valEl.textContent = fmtShort(parseFloat(slider.value));
+  slider.addEventListener('input', () => {
+    state[id] = parseFloat(slider.value);
+    valEl.textContent = fmtShort(state[id]);
+    // Раскрасить трек ползунка по значению
+    colorSliderTrack(slider, state[id]);
+    update();
+  });
+  colorSliderTrack(slider, state[id]);
+});
+
+// Окрашиваем трек ползунка в зависимости от знака значения
+function colorSliderTrack(slider, val) {
+  const pct = ((parseFloat(slider.value) - parseFloat(slider.min)) /
+               (parseFloat(slider.max) - parseFloat(slider.min))) * 100;
+  const col = val >= 0 ? '#4fc3f7' : '#ef5350';
+  slider.style.background =
+    `linear-gradient(to right, ${col} ${pct}%, #1a1a3e ${pct}%)`;
+}
+
+/* ═══════════════════════════════════════════════════
+   Кнопки функции активации
+═══════════════════════════════════════════════════ */
+
+document.querySelectorAll('.act-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.act-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.activationKey = btn.dataset.fn;
+    update();
+  });
+});
+
+/* ═══════════════════════════════════════════════════
+   Вычисление нейрона
+═══════════════════════════════════════════════════ */
+
+function compute() {
+  const z = state.x1 * state.w1 + state.x2 * state.w2 +
+            state.x3 * state.w3 + state.bias;
+  const act = activations[state.activationKey];
+  const y = act.fn(z);
+  return { z, y };
+}
+
+/* ═══════════════════════════════════════════════════
+   Обновление формулы
+═══════════════════════════════════════════════════ */
+
+function updateFormula(z, y) {
+  const { x1, x2, x3, w1, w2, w3, bias } = state;
+  const act = activations[state.activationKey];
+
+  // Вспомогательная функция: раскраска слагаемого
+  const term = (xi, wi) => {
+    const v = xi * wi;
+    const c = v >= 0 ? 'var(--positive)' : 'var(--negative)';
+    return `<span style="color:${c};font-weight:700;">${fmt(v)}</span>`;
+  };
+  const signedBias = bias >= 0
+    ? `<span style="color:var(--positive);font-weight:700;">+${fmt(bias)}</span>`
+    : `<span style="color:var(--negative);font-weight:700;">${fmt(bias)}</span>`;
+
+  const zCol = z >= 0 ? 'var(--accent3)' : 'var(--negative)';
+
+  document.getElementById('formulaBox').innerHTML = `
+    <div class="fline">
+      <span class="fop">z&nbsp;=&nbsp;</span>
+      <span class="fval">${fmt(x1)}</span><span class="fop">×</span><span class="fval">${fmt(w1)}</span>
+      <span class="fop">&nbsp;+&nbsp;</span>
+      <span class="fval">${fmt(x2)}</span><span class="fop">×</span><span class="fval">${fmt(w2)}</span>
+      <span class="fop">&nbsp;+&nbsp;</span>
+      <span class="fval">${fmt(x3)}</span><span class="fop">×</span><span class="fval">${fmt(w3)}</span>
+      <span class="fop">&nbsp;+&nbsp;(bias)&nbsp;</span>
+      ${signedBias}
+    </div>
+    <div class="fline" style="margin-top:4px;">
+      <span class="fop">z&nbsp;=&nbsp;</span>
+      ${term(x1,w1)} <span class="fop">&nbsp;+&nbsp;</span>
+      ${term(x2,w2)} <span class="fop">&nbsp;+&nbsp;</span>
+      ${term(x3,w3)} <span class="fop">&nbsp;+&nbsp;</span>
+      ${signedBias}
+    </div>
+    <div class="fline" style="margin-top:4px;">
+      <span class="fop">z&nbsp;=&nbsp;</span>
+      <span style="color:${zCol};font-weight:700;font-size:1.05rem;">${fmt(z)}</span>
+    </div>
+    <div class="fline" style="margin-top:4px;">
+      <span class="fop">y&nbsp;=&nbsp;${act.name}&nbsp;=&nbsp;</span>
+      <span class="fout">${y.toFixed(6)}</span>
+      <span class="flabel">${act.label}</span>
+    </div>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════
+   Пошаговый разбор
+═══════════════════════════════════════════════════ */
+
+function updateSteps(z, y) {
+  const { x1, x2, x3, w1, w2, w3, bias } = state;
+  const t1 = x1 * w1, t2 = x2 * w2, t3 = x3 * w3;
+  const act = activations[state.activationKey];
+
+  const color = v => v >= 0 ? 'var(--positive)' : 'var(--negative)';
+  const steps = [
+    { num:'Шаг 1', expr:`x₁ × w₁ = ${fmt(x1)} × ${fmt(w1)}`, val: t1 },
+    { num:'Шаг 2', expr:`x₂ × w₂ = ${fmt(x2)} × ${fmt(w2)}`, val: t2 },
+    { num:'Шаг 3', expr:`x₃ × w₃ = ${fmt(x3)} × ${fmt(w3)}`, val: t3 },
+    { num:'Шаг 4', expr:`Сумма + bias`, val: z },
+    { num:'Шаг 5', expr:`${act.name}(${fmt(z)})`, val: y },
+  ];
+
+  document.getElementById('stepsGrid').innerHTML = steps.map(s => `
+    <div class="step-card">
+      <div class="step-num">${s.num}</div>
+      <div class="step-expr">${s.expr}</div>
+      <div class="step-val" style="color:${color(s.val)};">${s.val.toFixed(4)}</div>
+    </div>
+  `).join('');
+}
+
+/* ═══════════════════════════════════════════════════
+   Итоговый результат
+═══════════════════════════════════════════════════ */
+
+function updateResultBar(z, y) {
+  const act = activations[state.activationKey];
+  document.getElementById('resZ').textContent   = fmt(z);
+  document.getElementById('resAct').textContent = act.name;
+  document.getElementById('resOut').textContent = y.toFixed(4);
+  document.getElementById('resOut').style.color =
+    y > 0.5 ? 'var(--positive)' : 'var(--accent)';
+}
+
+/* ═══════════════════════════════════════════════════
+   Рисование схемы нейрона (Canvas)
+═══════════════════════════════════════════════════ */
+
+function drawNeuron(y) {
+  const cvs = neuronCanvas;
+  // Устанавливаем реальный размер буфера канваса по CSS-размеру
+  const dpr = window.devicePixelRatio || 1;
+  const rect = cvs.getBoundingClientRect();
+  if (cvs.width !== Math.round(rect.width * dpr) ||
+      cvs.height !== Math.round(rect.height * dpr)) {
+    cvs.width  = Math.round(rect.width  * dpr);
+    cvs.height = Math.round(rect.height * dpr);
+  }
+  const ctx = nCtx;
+  const W = cvs.width, H = cvs.height;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = W / dpr, h = H / dpr;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Фон
+  ctx.fillStyle = '#0d0d1f';
+  ctx.fillRect(0, 0, w, h);
+
+  // Параметры компоновки
+  const inputX   = w * 0.18;
+  const neuronX  = w * 0.55;
+  const outputX  = w * 0.88;
+  const centerY  = h / 2;
+  const gap      = h * 0.22;
+  const rInput   = h * 0.065;
+  const rNeuron  = h * 0.11;
+  const rOutput  = h * 0.055;
+
+  const inputs  = [state.x1, state.x2, state.x3];
+  const weights = [state.w1, state.w2, state.w3];
+  const inputYs = [centerY - gap, centerY, centerY + gap];
+
+  // ── Вспомогательные функции рисования ──
+
+  // Рисуем стрелку со скруглёнными концами
+  function drawArrow(x1, y1, x2, y2, color, width, label, labelColor) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = width;
+    ctx.lineCap     = 'round';
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = 8;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Наконечник стрелки
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const arrowLen = 10;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(
+      x2 - arrowLen * Math.cos(angle - 0.35),
+      y2 - arrowLen * Math.sin(angle - 0.35)
+    );
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(
+      x2 - arrowLen * Math.cos(angle + 0.35),
+      y2 - arrowLen * Math.sin(angle + 0.35)
+    );
+    ctx.stroke();
+    ctx.restore();
+
+    // Метка веса по середине линии
+    if (label !== undefined) {
+      const mx = (x1 + x2) / 2;
+      const my = (y1 + y2) / 2 - 9;
+      ctx.save();
+      ctx.font = `bold ${Math.max(10, h * 0.038)}px 'Courier New', monospace`;
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
+      // Тень подложка
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur  = 6;
+      ctx.fillStyle   = labelColor;
+      ctx.fillText(label, mx, my);
+      ctx.restore();
+    }
+  }
+
+  // Рисуем узел-кружок
+  function drawNode(x, y, r, label, sublabel, fillColor, glowColor) {
+    ctx.save();
+    // Ореол
+    const grad = ctx.createRadialGradient(x, y, r * 0.2, x, y, r * 1.6);
+    grad.addColorStop(0, glowColor + '55');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Заливка
+    const innerGrad = ctx.createRadialGradient(x - r*0.3, y - r*0.3, 0, x, y, r);
+    innerGrad.addColorStop(0, lighten(fillColor, 40));
+    innerGrad.addColorStop(1, fillColor);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = innerGrad;
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur  = 18;
+    ctx.fill();
+
+    // Обводка
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    // Текст
+    ctx.save();
+    ctx.textAlign   = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.max(9, r * 0.55)}px 'Courier New', monospace`;
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur  = 4;
+    ctx.fillText(label, x, sublabel ? y - r * 0.2 : y);
+    if (sublabel) {
+      ctx.font = `${Math.max(8, r * 0.42)}px 'Courier New', monospace`;
+      ctx.fillStyle = 'rgba(255,255,255,.7)';
+      ctx.fillText(sublabel, x, y + r * 0.4);
+    }
+    ctx.restore();
+  }
+
+  // Утилита: осветлить hex-цвет
+  function lighten(hex, amount) {
+    const n = parseInt(hex.replace('#',''), 16);
+    const r = Math.min(255, (n >> 16) + amount);
+    const g = Math.min(255, ((n >> 8) & 0xff) + amount);
+    const b = Math.min(255, (n & 0xff) + amount);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  // ── Рисуем связи вход → нейрон ──
+  inputs.forEach((xi, i) => {
+    const wi = weights[i];
+    const strength = Math.abs(wi) / 2;  // нормализованная толщина
+    const lineW    = 1.5 + strength * 5;
+    const baseColor = wi >= 0 ? '#4fc3f7' : '#ef5350';
+    const alpha = 0.35 + strength * 0.65;
+    const color = hexAlpha(baseColor, alpha);
+
+    const startX = inputX + rInput;
+    const startY = inputYs[i];
+    const endX   = neuronX - rNeuron;
+    const endY   = centerY;
+
+    drawArrow(startX, startY, endX, endY, color, lineW,
+              (wi >= 0 ? '+' : '') + wi.toFixed(2),
+              wi >= 0 ? '#81d4fa' : '#ff8a80');
+  });
+
+  // ── Рисуем связь нейрон → выход ──
+  drawArrow(
+    neuronX + rNeuron, centerY,
+    outputX - rOutput, centerY,
+    '#f5a62388', 3
+  );
+
+  // ── Рисуем входные узлы ──
+  const inputLabels = ['x₁', 'x₂', 'x₃'];
+  inputs.forEach((xi, i) => {
+    const c = xi >= 0 ? '#0d47a1' : '#4a0000';
+    const g = xi >= 0 ? '#4fc3f7' : '#ef5350';
+    drawNode(inputX, inputYs[i], rInput,
+             inputLabels[i],
+             xi.toFixed(2), c, g);
+  });
+
+  // ── Рисуем центральный нейрон ──
+  drawNode(
+    neuronX, centerY, rNeuron,
+    'Σ + f',
+    y.toFixed(3),
+    '#1a0050', '#e040fb'
+  );
+
+  // ── Рисуем выходной узел ──
+  const outColor = y >= 0.5 ? '#004d40' : '#1a0030';
+  const outGlow  = y >= 0.5 ? '#4fc3f7' : '#f06292';
+  drawNode(outputX, centerY, rOutput, 'y', y.toFixed(3), outColor, outGlow);
+
+  // ── Подпись смещения ──
+  const biasY = centerY + rNeuron + h * 0.14;
+  drawArrow(
+    neuronX, biasY - h * 0.04,
+    neuronX, centerY + rNeuron,
+    '#f5a62388', 2
+  );
+  ctx.save();
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'top';
+  ctx.font = `bold ${Math.max(10, h * 0.038)}px 'Courier New', monospace`;
+  ctx.fillStyle   = '#f5a623cc';
+  ctx.shadowColor = '#000';
+  ctx.shadowBlur  = 4;
+  ctx.fillText(`bias: ${state.bias >= 0 ? '+' : ''}${state.bias.toFixed(2)}`, neuronX, biasY);
+  ctx.restore();
+
+  // ── Подписи колонок ──
+  const labelY = h * 0.06;
+  const labelFont = `${Math.max(10, h * 0.04)}px 'Segoe UI', sans-serif`;
+  [
+    [inputX,  'Входы', '#8892a4'],
+    [neuronX, 'Нейрон', '#ce93d8'],
+    [outputX, 'Выход', '#80cbc4']
+  ].forEach(([x, t, c]) => {
+    ctx.save();
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font         = labelFont;
+    ctx.fillStyle    = c;
+    ctx.shadowColor  = '#000';
+    ctx.shadowBlur   = 3;
+    ctx.fillText(t, x, labelY);
+    ctx.restore();
+  });
+}
+
+// Хелпер: hex → rgba строка с прозрачностью
+function hexAlpha(hex, alpha) {
+  const n = parseInt(hex.replace('#',''), 16);
+  return `rgba(${n>>16},${(n>>8)&255},${n&255},${alpha})`;
+}
+
+/* ═══════════════════════════════════════════════════
+   Рисование графика функции активации (Canvas)
+═══════════════════════════════════════════════════ */
+
+function drawActivationGraph(currentZ) {
+  const cvs = activationCanvas;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = cvs.getBoundingClientRect();
+  if (cvs.width  !== Math.round(rect.width  * dpr) ||
+      cvs.height !== Math.round(rect.height * dpr)) {
+    cvs.width  = Math.round(rect.width  * dpr);
+    cvs.height = Math.round(rect.height * dpr);
+  }
+  const ctx = aCtx;
+  const W = cvs.width, H = cvs.height;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = W / dpr, h = H / dpr;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#0d0d1f';
+  ctx.fillRect(0, 0, w, h);
+
+  const act = activations[state.activationKey];
+  const [xMin, xMax] = act.range;
+  const [yMin, yMax] = act.yRange;
+  const pad = { l: 40, r: 18, t: 14, b: 28 };
+
+  const mapX = z => pad.l + (z - xMin) / (xMax - xMin) * (w - pad.l - pad.r);
+  const mapY = y => pad.t + (1 - (y - yMin) / (yMax - yMin)) * (h - pad.t - pad.b);
+
+  // Сетка
+  ctx.strokeStyle = '#1e1e3f';
+  ctx.lineWidth = 1;
+  for (let x = Math.ceil(xMin); x <= Math.floor(xMax); x++) {
+    const px = mapX(x);
+    ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, h - pad.b); ctx.stroke();
+  }
+
+  // Оси
+  ctx.strokeStyle = '#3a3a6e';
+  ctx.lineWidth = 1.5;
+  // Ось X (y=0)
+  if (yMin < 0 && yMax > 0) {
+    const y0 = mapY(0);
+    ctx.beginPath(); ctx.moveTo(pad.l, y0); ctx.lineTo(w - pad.r, y0); ctx.stroke();
+  }
+  // Ось Y (x=0)
+  if (xMin < 0 && xMax > 0) {
+    const x0 = mapX(0);
+    ctx.beginPath(); ctx.moveTo(x0, pad.t); ctx.lineTo(x0, h - pad.b); ctx.stroke();
+  }
+
+  // Засечки оси X
+  ctx.fillStyle = '#5a6a7e';
+  ctx.font = `${Math.max(8, h * 0.16)}px 'Courier New', monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let x = Math.ceil(xMin); x <= Math.floor(xMax); x++) {
+    if (x === 0) continue;
+    ctx.fillText(x, mapX(x), h - pad.b + 4);
+  }
+
+  // Кривая функции активации
+  ctx.beginPath();
+  ctx.lineWidth = 2.5;
+  const steps = 300;
+  for (let i = 0; i <= steps; i++) {
+    const z = xMin + (i / steps) * (xMax - xMin);
+    const y = act.fn(z);
+    const px = mapX(z);
+    const py = mapY(y);
+    if (i === 0) ctx.moveTo(px, py);
+    else         ctx.lineTo(px, py);
+  }
+  const grad = ctx.createLinearGradient(pad.l, 0, w - pad.r, 0);
+  grad.addColorStop(0, '#ef5350aa');
+  grad.addColorStop(0.5, '#4fc3f7');
+  grad.addColorStop(1, '#69f0ae');
+  ctx.strokeStyle = grad;
+  ctx.shadowColor = '#4fc3f7';
+  ctx.shadowBlur  = 6;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Метка оси
+  ctx.fillStyle = '#6a7a8e';
+  ctx.font = `${Math.max(8, h * 0.14)}px 'Segoe UI', sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(act.label, pad.l + 2, pad.t + 2);
+
+  // Маркер текущего z
+  const cz = Math.max(xMin, Math.min(xMax, currentZ));
+  const cy = act.fn(cz);
+  const cx = mapX(cz), cyPx = mapY(cy);
+
+  // Пунктирные вертикаль и горизонталь
+  ctx.setLineDash([3, 4]);
+  ctx.strokeStyle = '#f5a62388';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(cx, h - pad.b); ctx.lineTo(cx, cyPx);
+  ctx.moveTo(pad.l, cyPx);   ctx.lineTo(cx, cyPx);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Точка на кривой
+  ctx.beginPath();
+  ctx.arc(cx, cyPx, 5.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#f5a623';
+  ctx.shadowColor = '#f5a623';
+  ctx.shadowBlur = 14;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Подпись точки
+  const labelText = `z=${currentZ.toFixed(2)}  y=${cy.toFixed(3)}`;
+  const lx = cx + 8;
+  const ly = Math.max(pad.t + 4, cyPx - 16);
+  ctx.font = `bold ${Math.max(9, h * 0.15)}px 'Courier New', monospace`;
+  ctx.textAlign = lx + 120 > w ? 'right' : 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#f5a623';
+  ctx.shadowColor = '#000';
+  ctx.shadowBlur  = 4;
+  ctx.fillText(labelText, lx + 120 > w ? cx - 8 : lx, ly);
+  ctx.shadowBlur = 0;
+}
+
+/* ═══════════════════════════════════════════════════
+   Анимация плавного перехода z → currentZ
+═══════════════════════════════════════════════════ */
+
+function animateFrame() {
+  const { z, y } = compute();
+  // Плавная интерполяция текущего z к целевому
+  state.zCurrent += (z - state.zCurrent) * 0.18;
+  state.yCurrent += (y - state.yCurrent) * 0.18;
+
+  drawNeuron(state.yCurrent);
+  drawActivationGraph(state.zCurrent);
+
+  // Продолжаем анимацию, пока не достигнем цели
+  if (Math.abs(z - state.zCurrent) > 0.0005 || Math.abs(y - state.yCurrent) > 0.0005) {
+    state.rafId = requestAnimationFrame(animateFrame);
+  } else {
+    // Финальный кадр с точными значениями
+    state.zCurrent = z;
+    state.yCurrent = y;
+    drawNeuron(y);
+    drawActivationGraph(z);
+    state.rafId = null;
+  }
+}
+
+function startAnimation() {
+  if (state.rafId) cancelAnimationFrame(state.rafId);
+  state.rafId = requestAnimationFrame(animateFrame);
+}
+
+/* ═══════════════════════════════════════════════════
+   Главная функция обновления
+═══════════════════════════════════════════════════ */
+
+function update() {
+  const { z, y } = compute();
+  updateFormula(z, y);
+  updateSteps(z, y);
+  updateResultBar(z, y);
+  startAnimation();
+}
+
+/* ═══════════════════════════════════════════════════
+   Реакция на изменение размера окна
+═══════════════════════════════════════════════════ */
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const { z, y } = compute();
+    drawNeuron(y);
+    drawActivationGraph(z);
+  }, 80);
+});
+
+/* ═══════════════════════════════════════════════════
+   Первоначальный рендер
+═══════════════════════════════════════════════════ */
+
+// Ждём рендера DOM, чтобы canvas получил корректные CSS-размеры
+requestAnimationFrame(() => {
+  const { z, y } = compute();
+  state.zCurrent = z;
+  state.yCurrent = y;
+  update();
+});
+</script>
+</body>
+</html>
