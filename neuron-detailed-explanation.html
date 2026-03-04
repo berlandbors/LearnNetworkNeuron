@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подробное объяснение работы нейрона</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .canvas-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .input-group {
+            margin: 15px 0;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+
+        .input-group input[type="number"],
+        .input-group input[type="range"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input[type="number"]:focus,
+        .input-group input[type="range"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-group input[type="range"] {
+            padding: 0;
+            height: 40px;
+        }
+
+        .value-display {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-left: 10px;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .calculations {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .calc-step {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            line-height: 1.8;
+        }
+
+        .calc-step.highlight {
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+            animation: pulse 1s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .result-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: 600;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .activation-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .activation-btn {
+            padding: 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .activation-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .activation-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .training-section {
+            grid-column: 1 / -1;
+        }
+
+        .training-controls {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: #6c757d;
+        }
+
+        button.secondary:hover {
+            background: #5a6268;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .info-box strong {
+            color: #1976D2;
+        }
+
+        .formula {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            margin: 15px 0;
+            border: 2px dashed #667eea;
+        }
+
+        .weight-visual {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .weight-bar {
+            flex: 1;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+            margin: 0 15px;
+        }
+
+        .weight-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85em;
+        }
+
+        .epoch-display {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+            color: #667eea;
+            font-weight: 600;
+            border-bottom: 2px dotted #667eea;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .keyword { color: #ff79c6; }
+        .function { color: #50fa7b; }
+        .number { color: #bd93f9; }
+        .comment { color: #6272a4; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Подробное объяснение работы нейрона</h1>
+        <p class="subtitle">Интерактивная визуализация с пошаговыми вычислениями</p>
+
+        <div class="info-box">
+            <strong>Что такое нейрон?</strong> Нейрон - это математическая функция, которая принимает несколько входов, 
+            умножает их на веса, суммирует результаты, добавляет смещение (bias) и применяет функцию активации.
+        </div>
+
+        <div class="formula">
+            y = activation(Σ(xᵢ × wᵢ) + bias)
+        </div>
+
+        <div class="main-grid">
+            <!-- Входные данные -->
+            <div class="section">
+                <h2>📥 Входные данные</h2>
+                
+                <div class="input-group">
+                    <label>Вход X₁: <span class="value-display" id="x1-display">0.50</span></label>
+                    <input type="range" id="x1" min="-2" max="2" step="0.01" value="0.5">
+                </div>
+
+                <div class="input-group">
+                    <label>Вход X₂: <span class="value-display" id="x2-display">0.80</span></label>
+                    <input type="range" id="x2" min="-2" max="2" step="0.01" value="0.8">
+                </div>
+
+                <div class="input-group">
+                    <label>Вход X₃: <span class="value-display" id="x3-display">0.20</span></label>
+                    <input type="range" id="x3" min="-2" max="2" step="0.01" value="0.2">
+                </div>
+
+                <div class="info-box">
+                    Входы - это данные, которые нейрон получает. Это могут быть пиксели изображения, 
+                    слова в тексте, или любые другие числовые значения.
+                </div>
+            </div>
+
+            <!-- Веса и Bias -->
+            <div class="section">
+                <h2>⚖️ Веса и смещение</h2>
+                
+                <div class="input-group">
+                    <label>Вес W₁: <span class="value-display" id="w1-display">0.40</span></label>
+                    <input type="range" id="w1" min="-2" max="2" step="0.01" value="0.4">
+                    <div class="weight-visual">
+                        <span>-2</span>
+                        <div class="weight-bar">
+                            <div class="weight-fill" id="w1-bar" style="width: 60%">0.40</div>
+                        </div>
+                        <span>+2</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Вес W₂: <span class="value-display" id="w2-display">-0.30</span></label>
+                    <input type="range" id="w2" min="-2" max="2" step="0.01" value="-0.3">
+                    <div class="weight-visual">
+                        <span>-2</span>
+                        <div class="weight-bar">
+                            <div class="weight-fill" id="w2-bar" style="width: 42.5">-0.30</div>
+                        </div>
+                        <span>+2</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Вес W₃: <span class="value-display" id="w3-display">0.90</span></label>
+                    <input type="range" id="w3" min="-2" max="2" step="0.01" value="0.9">
+                    <div class="weight-visual">
+                        <span>-2</span>
+                        <div class="weight-bar">
+                            <div class="weight-fill" id="w3-bar" style="width: 72.5">0.90</div>
+                        </div>
+                        <span>+2</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Bias (смещение): <span class="value-display" id="bias-display">0.10</span></label>
+                    <input type="range" id="bias" min="-2" max="2" step="0.01" value="0.1">
+                </div>
+
+                <div class="info-box">
+                    <strong>Веса</strong> определяют важность каждого входа. Положительный вес усиливает вход, 
+                    отрицательный - ослабляет. <strong>Bias</strong> позволяет нейрону активироваться даже при нулевых входах.
+                </div>
+            </div>
+
+            <!-- Визуализация нейрона -->
+            <div class="section">
+                <h2>🎨 Визуализация нейрона</h2>
+                <div class="canvas-container">
+                    <canvas id="neuronCanvas" width="500" height="400"></canvas>
+                </div>
+            </div>
+
+            <!-- Пошаговые вычисления -->
+            <div class="section">
+                <h2>🔢 Пошаговые вычисления</h2>
+                <div class="calculations" id="calculations">
+                    <!-- Будет заполнено JavaScript -->
+                </div>
+                <div class="result-box" id="result">
+                    Выход: 0.00
+                </div>
+            </div>
+
+            <!-- Функции активации -->
+            <div class="section">
+                <h2>⚡ Функция активации</h2>
+                <div class="activation-selector">
+                    <button class="activation-btn active" data-activation="sigmoid">Sigmoid</button>
+                    <button class="activation-btn" data-activation="tanh">Tanh</button>
+                    <button class="activation-btn" data-activation="relu">ReLU</button>
+                    <button class="activation-btn" data-activation="leaky_relu">Leaky ReLU</button>
+                    <button class="activation-btn" data-activation="step">Step</button>
+                    <button class="activation-btn" data-activation="linear">Linear</button>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="activationCanvas" width="500" height="300"></canvas>
+                </div>
+
+                <div class="info-box">
+                    <strong>Функция активации</strong> вносит нелинейность, позволяя нейронной сети решать сложные задачи. 
+                    Попробуйте разные функции и посмотрите, как меняется выход нейрона!
+                </div>
+            </div>
+
+            <!-- График функции активации -->
+            <div class="section">
+                <h2>📊 График выбранной функции</h2>
+                <div class="canvas-container">
+                    <canvas id="functionCanvas" width="500" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- Обучение нейрона -->
+            <div class="section training-section">
+                <h2>🎓 Обучение нейрона (Логическая функция AND)</h2>
+                
+                <div class="info-box">
+                    <strong>Задача:</strong> Обучить нейрон распознавать логическую функцию AND. 
+                    Нейрон должен выдавать 1 только когда оба входа равны 1, иначе - 0.
+                </div>
+
+                <div class="training-controls">
+                    <button onclick="trainOneEpoch()">Одна эпоха обучения</button>
+                    <button onclick="trainMultipleEpochs()">100 эпох</button>
+                    <button onclick="resetWeights()">Сбросить веса</button>
+                    <button class="secondary" onclick="testNeuron()">Тестировать</button>
+                </div>
+
+                <div class="epoch-display" id="epochDisplay">Эпоха: 0, Средняя ошибка: 0.0000</div>
+
+                <div class="input-group">
+                    <label>Скорость обучения (Learning Rate): <span class="value-display" id="lr-display">0.50</span></label>
+                    <input type="range" id="learningRate" min="0.01" max="1" step="0.01" value="0.5">
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="trainingCanvas" width="1000" height="300"></canvas>
+                </div>
+
+                <div class="calculations" id="trainingLog">
+                    <strong>Журнал обучения:</strong>
+                    <div id="logContent">Нажмите кнопку обучения для начала...</div>
+                </div>
+            </div>
+
+            <!-- Код реализации -->
+            <div class="section training-section">
+                <h2>💻 Код реализации нейрона</h2>
+                
+                <div class="code-block">
+<span class="keyword">class</span> <span class="function">Neuron</span> {
+    <span class="keyword">constructor</span>(numInputs) {
+        <span class="comment">// Инициализация весов случайными значениями</span>
+        <span class="keyword">this</span>.weights = <span class="function">Array</span>(numInputs).<span class="function">fill</span>(<span class="number">0</span>)
+            .<span class="function">map</span>(() => <span class="function">Math.random</span>() * <span class="number">2</span> - <span class="number">1</span>);
+        <span class="keyword">this</span>.bias = <span class="function">Math.random</span>() * <span class="number">2</span> - <span class="number">1</span>;
+    }
+    
+    <span class="comment">// Прямое распространение</span>
+    <span class="function">forward</span>(inputs) {
+        <span class="keyword">let</span> sum = <span class="keyword">this</span>.bias;
+        <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i < inputs.length; i++) {
+            sum += inputs[i] * <span class="keyword">this</span>.weights[i];
+        }
+        <span class="keyword">return this</span>.<span class="function">activate</span>(sum);
+    }
+    
+    <span class="comment">// Функция активации (Sigmoid)</span>
+    <span class="function">activate</span>(x) {
+        <span class="keyword">return</span> <span class="number">1</span> / (<span class="number">1</span> + <span class="function">Math.exp</span>(-x));
+    }
+    
+    <span class="comment">// Обучение (градиентный спуск)</span>
+    <span class="function">train</span>(inputs, target, learningRate) {
+        <span class="keyword">const</span> output = <span class="keyword">this</span>.<span class="function">forward</span>(inputs);
+        <span class="keyword">const</span> error = target - output;
+        <span class="keyword">const</span> gradient = error * output * (<span class="number">1</span> - output);
+        
+        <span class="comment">// Обновление весов</span>
+        <span class="keyword">for</span> (<span class="keyword">let</span> i = <span class="number">0</span>; i < <span class="keyword">this</span>.weights.length; i++) {
+            <span class="keyword">this</span>.weights[i] += learningRate * gradient * inputs[i];
+        }
+        <span class="keyword">this</span>.bias += learningRate * gradient;
+        
+        <span class="keyword">return</span> <span class="function">Math.abs</span>(error);
+    }
+}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Глобальные переменные
+        let currentActivation = 'sigmoid';
+        let neuronForTraining = null;
+        let trainingEpoch = 0;
+        let errorHistory = [];
+
+        // Данные для обучения (AND функция)
+        const trainingData = [
+            { inputs: [0, 0], target: 0 },
+            { inputs: [0, 1], target: 0 },
+            { inputs: [1, 0], target: 0 },
+            { inputs: [1, 1], target: 1 }
+        ];
+
+        // Класс Neuron
+        class Neuron {
+            constructor(numInputs) {
+                this.weights = Array(numInputs).fill(0).map(() => Math.random() * 2 - 1);
+                this.bias = Math.random() * 2 - 1;
+            }
+
+            forward(inputs) {
+                let sum = this.bias;
+                for (let i = 0; i < inputs.length; i++) {
+                    sum += inputs[i] * this.weights[i];
+                }
+                this.lastSum = sum;
+                this.lastInputs = inputs;
+                this.lastOutput = this.activate(sum);
+                return this.lastOutput;
+            }
+
+            activate(x) {
+                switch(currentActivation) {
+                    case 'sigmoid': return 1 / (1 + Math.exp(-x));
+                    case 'tanh': return Math.tanh(x);
+                    case 'relu': return Math.max(0, x);
+                    case 'leaky_relu': return x > 0 ? x : 0.01 * x;
+                    case 'step': return x >= 0 ? 1 : 0;
+                    case 'linear': return x;
+                    default: return x;
+                }
+            }
+
+            activateDerivative(x) {
+                switch(currentActivation) {
+                    case 'sigmoid':
+                        const sig = this.activate(x);
+                        return sig * (1 - sig);
+                    case 'tanh':
+                        const t = Math.tanh(x);
+                        return 1 - t * t;
+                    case 'relu': return x > 0 ? 1 : 0;
+                    case 'leaky_relu': return x > 0 ? 1 : 0.01;
+                    case 'step': return 0;
+                    case 'linear': return 1;
+                    default: return 1;
+                }
+            }
+
+            train(inputs, target, learningRate) {
+                const output = this.forward(inputs);
+                const error = target - output;
+                const gradient = error * this.activateDerivative(this.lastSum);
+
+                for (let i = 0; i < this.weights.length; i++) {
+                    this.weights[i] += learningRate * gradient * inputs[i];
+                }
+                this.bias += learningRate * gradient;
+
+                return Math.abs(error);
+            }
+        }
+
+        // Инициализация
+        neuronForTraining = new Neuron(2);
+
+        // Получение значений из слайдеров
+        function getInputs() {
+            return [
+                parseFloat(document.getElementById('x1').value),
+                parseFloat(document.getElementById('x2').value),
+                parseFloat(document.getElementById('x3').value)
+            ];
+        }
+
+        function getWeights() {
+            return [
+                parseFloat(document.getElementById('w1').value),
+                parseFloat(document.getElementById('w2').value),
+                parseFloat(document.getElementById('w3').value)
+            ];
+        }
+
+        function getBias() {
+            return parseFloat(document.getElementById('bias').value);
+        }
+
+        // Функции активации для отображения
+        function activationFunction(x, type) {
+            switch(type) {
+                case 'sigmoid': return 1 / (1 + Math.exp(-x));
+                case 'tanh': return Math.tanh(x);
+                case 'relu': return Math.max(0, x);
+                case 'leaky_relu': return x > 0 ? x : 0.01 * x;
+                case 'step': return x >= 0 ? 1 : 0;
+                case 'linear': return x;
+                default: return x;
+            }
+        }
+
+        // Вычисление выхода нейрона
+        function calculateOutput() {
+            const inputs = getInputs();
+            const weights = getWeights();
+            const bias = getBias();
+
+            // Шаг 1: Взвешенная сумма
+            let sum = 0;
+            let calcHTML = '<div class="calc-step highlight"><strong>Шаг 1: Вычисление взвешенной суммы</strong></div>';
+            
+            for (let i = 0; i < inputs.length; i++) {
+                const product = inputs[i] * weights[i];
+                sum += product;
+                calcHTML += `<div class="calc-step">X${i+1} × W${i+1} = ${inputs[i].toFixed(2)} × ${weights[i].toFixed(2)} = ${product.toFixed(4)}</div>`;
+            }
+
+            calcHTML += `<div class="calc-step highlight">Сумма произведений: ${sum.toFixed(4)}</div>`;
+
+            // Шаг 2: Добавление bias
+            calcHTML += '<div class="calc-step highlight"><strong>Шаг 2: Добавление смещения (bias)</strong></div>';
+            calcHTML += `<div class="calc-step">${sum.toFixed(4)} + ${bias.toFixed(2)} = ${(sum + bias).toFixed(4)}</div>`;
+            sum += bias;
+
+            // Шаг 3: Функция активации
+            calcHTML += '<div class="calc-step highlight"><strong>Шаг 3: Применение функции активации</strong></div>';
+            const output = activationFunction(sum, currentActivation);
+            calcHTML += `<div class="calc-step">${currentActivation}(${sum.toFixed(4)}) = ${output.toFixed(4)}</div>`;
+
+            // Шаг 4: Интерпретация
+            calcHTML += '<div class="calc-step highlight"><strong>Шаг 4: Интерпретация результата</strong></div>';
+            if (currentActivation === 'sigmoid') {
+                calcHTML += `<div class="calc-step">Вероятность: ${(output * 100).toFixed(2)}%</div>`;
+                calcHTML += `<div class="calc-step">Классификация: ${output > 0.5 ? '<strong>1 (активирован)</strong>' : '<strong>0 (не активирован)</strong>'}</div>`;
+            } else {
+                calcHTML += `<div class="calc-step">Выход: ${output.toFixed(4)}</div>`;
+            }
+
+            document.getElementById('calculations').innerHTML = calcHTML;
+            document.getElementById('result').innerHTML = `Выход нейрона: ${output.toFixed(4)}`;
+
+            return { sum: sum - bias, finalSum: sum, output };
+        }
+
+        // Рисование нейрона
+        function drawNeuron() {
+            const canvas = document.getElementById('neuronCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const inputs = getInputs();
+            const weights = getWeights();
+            const { sum, output } = calculateOutput();
+
+            // Позиции
+            const inputX = 80;
+            const neuronX = 300;
+            const outputX = 450;
+            const centerY = height / 2;
+
+            // Рисуем связи
+            inputs.forEach((input, i) => {
+                const inputY = (height / 4) * (i + 0.5);
+                
+                // Цвет связи зависит от веса
+                const weight = weights[i];
+                const absWeight = Math.abs(weight);
+                const color = weight > 0 ? `rgba(76, 175, 80, ${absWeight})` : `rgba(244, 67, 54, ${absWeight})`;
+                
+                ctx.strokeStyle = color;
+                ctx.lineWidth = Math.max(1, absWeight * 5);
+                ctx.beginPath();
+                ctx.moveTo(inputX + 30, inputY);
+                ctx.lineTo(neuronX - 50, centerY);
+                ctx.stroke();
+
+                // Значение веса на связи
+                const midX = (inputX + 30 + neuronX - 50) / 2;
+                const midY = (inputY + centerY) / 2;
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText(`w=${weight.toFixed(2)}`, midX - 20, midY - 5);
+            });
+
+            // Рисуем входы
+            inputs.forEach((input, i) => {
+                const y = (height / 4) * (i + 0.5);
+                
+                // Круг входа
+                const intensity = Math.abs(input);
+                ctx.fillStyle = input > 0 ? `rgba(33, 150, 243, ${intensity})` : `rgba(156, 39, 176, ${intensity})`;
+                ctx.beginPath();
+                ctx.arc(inputX, y, 25, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Значение входа
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(input.toFixed(2), inputX, y + 5);
+
+                // Метка
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText(`X${i+1}`, inputX - 40, y + 5);
+            });
+
+            // Рисуем нейрон
+            const neuronIntensity = Math.min(1, Math.abs(output));
+            ctx.fillStyle = `rgba(102, 126, 234, ${neuronIntensity})`;
+            ctx.beginPath();
+            ctx.arc(neuronX, centerY, 50, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Сумма в нейроне
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Σ=${sum.toFixed(2)}`, neuronX, centerY - 10);
+            ctx.font = '12px Arial';
+            ctx.fillText(`+bias`, neuronX, centerY + 10);
+
+            // Связь к выходу
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(neuronX + 50, centerY);
+            ctx.lineTo(outputX - 30, centerY);
+            ctx.stroke();
+
+            // Функция активации
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(outputX - 80, centerY - 20, 100, 40);
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(outputX - 80, centerY - 20, 100, 40);
+            ctx.fillStyle = '#667eea';
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText(currentActivation, outputX - 30, centerY + 5);
+
+            // Выход
+            ctx.fillStyle = `rgba(76, 175, 80, ${neuronIntensity})`;
+            ctx.beginPath();
+            ctx.arc(outputX, centerY, 30, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText(output.toFixed(2), outputX, centerY + 5);
+
+            // Метка выхода
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText('Y', outputX + 40, centerY + 5);
+        }
+
+        // Рисование графика активации
+        function drawActivationGraph() {
+            const canvas = document.getElementById('activationCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const { finalSum, output } = calculateOutput();
+
+            // Оси
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(50, height - 50);
+            ctx.lineTo(width - 50, height - 50);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(50, 20);
+            ctx.lineTo(50, height - 50);
+            ctx.stroke();
+
+            // График функции
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            const xMin = -10;
+            const xMax = 10;
+            const steps = 200;
+
+            for (let i = 0; i <= steps; i++) {
+                const x = xMin + (xMax - xMin) * (i / steps);
+                const y = activationFunction(x, currentActivation);
+                
+                const canvasX = 50 + (width - 100) * ((x - xMin) / (xMax - xMin));
+                let canvasY;
+                
+                if (currentActivation === 'relu' || currentActivation === 'leaky_relu') {
+                    const yMax = 10;
+                    canvasY = height - 50 - (height - 70) * (y / yMax);
+                } else {
+                    canvasY = height - 50 - (height - 70) * ((y + 1) / 2);
+                }
+
+                if (i === 0) {
+                    ctx.moveTo(canvasX, canvasY);
+                } else {
+                    ctx.lineTo(canvasX, canvasY);
+                }
+            }
+            ctx.stroke();
+
+            // Текущая точка
+            const currentX = 50 + (width - 100) * ((finalSum - xMin) / (xMax - xMin));
+            let currentY;
+            
+            if (currentActivation === 'relu' || currentActivation === 'leaky_relu') {
+                const yMax = 10;
+                currentY = height - 50 - (height - 70) * (output / yMax);
+            } else {
+                currentY = height - 50 - (height - 70) * ((output + 1) / 2);
+            }
+
+            ctx.fillStyle = '#ff5722';
+            ctx.beginPath();
+            ctx.arc(currentX, currentY, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Метки
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Σ + bias', width / 2, height - 20);
+            
+            ctx.save();
+            ctx.translate(20, height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Выход', 0, 0);
+            ctx.restore();
+
+            // Значения
+            ctx.fillText(`(${finalSum.toFixed(2)}, ${output.toFixed(2)})`, currentX, currentY - 15);
+        }
+
+        // Рисование графика функции активации
+        function drawFunctionGraph() {
+            const canvas = document.getElementById('functionCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Оси
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(30, centerY);
+            ctx.lineTo(width - 30, centerY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, 20);
+            ctx.lineTo(centerX, height - 20);
+            ctx.stroke();
+
+            // Стрелки
+            ctx.beginPath();
+            ctx.moveTo(width - 30, centerY);
+            ctx.lineTo(width - 40, centerY - 5);
+            ctx.lineTo(width - 40, centerY + 5);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, 20);
+            ctx.lineTo(centerX - 5, 30);
+            ctx.lineTo(centerX + 5, 30);
+            ctx.closePath();
+            ctx.fill();
+
+            // График
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            const xMin = -5;
+            const xMax = 5;
+            const steps = 200;
+
+            for (let i = 0; i <= steps; i++) {
+                const x = xMin + (xMax - xMin) * (i / steps);
+                const y = activationFunction(x, currentActivation);
+                
+                const canvasX = centerX + (x / xMax) * (width / 2 - 50);
+                let canvasY;
+
+                if (currentActivation === 'relu' || currentActivation === 'leaky_relu' || currentActivation === 'linear') {
+                    canvasY = centerY - (y / 5) * (height / 2 - 30);
+                } else {
+                    canvasY = centerY - y * (height / 2 - 30);
+                }
+
+                if (i === 0) {
+                    ctx.moveTo(canvasX, canvasY);
+                } else {
+                    ctx.lineTo(canvasX, canvasY);
+                }
+            }
+            ctx.stroke();
+
+            // Метки
+            ctx.fillStyle = '#333';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('x', width - 15, centerY - 10);
+            ctx.fillText('y', centerX + 15, 15);
+            ctx.fillText(currentActivation + '(x)', width - 100, 40);
+
+            // Значения на осях
+            ctx.font = '12px Arial';
+            for (let i = -4; i <= 4; i += 2) {
+                if (i !== 0) {
+                    const x = centerX + (i / 5) * (width / 2 - 50);
+                    ctx.fillText(i.toString(), x, centerY + 20);
+                }
+            }
+        }
+
+        // Обучение
+        function trainOneEpoch() {
+            const lr = parseFloat(document.getElementById('learningRate').value);
+            let totalError = 0;
+            let logHTML = '<strong>Эпоха ' + (trainingEpoch + 1) + ':</strong><br>';
+
+            trainingData.forEach((data, idx) => {
+                const output = neuronForTraining.forward(data.inputs);
+                const error = neuronForTraining.train(data.inputs, data.target, lr);
+                totalError += error;
+                
+                logHTML += `Пример ${idx + 1}: [${data.inputs}] → ${output.toFixed(4)} (цель: ${data.target}, ошибка: ${error.toFixed(4)})<br>`;
+            });
+
+            const avgError = totalError / trainingData.length;
+            errorHistory.push(avgError);
+            trainingEpoch++;
+
+            logHTML += `<strong>Средняя ошибка: ${avgError.toFixed(6)}</strong>`;
+            document.getElementById('logContent').innerHTML = logHTML;
+            document.getElementById('epochDisplay').textContent = `Эпоха: ${trainingEpoch}, Средняя ошибка: ${avgError.toFixed(6)}`;
+
+            drawTrainingGraph();
+        }
+
+        function trainMultipleEpochs() {
+            for (let i = 0; i < 100; i++) {
+                trainOneEpoch();
+            }
+        }
+
+        function resetWeights() {
+            neuronForTraining = new Neuron(2);
+            trainingEpoch = 0;
+            errorHistory = [];
+            document.getElementById('logContent').innerHTML = 'Веса сброшены. Нажмите кнопку обучения для начала...';
+            document.getElementById('epochDisplay').textContent = 'Эпоха: 0, Средняя ошибка: 0.0000';
+            drawTrainingGraph();
+        }
+
+        function testNeuron() {
+            let logHTML = '<strong>Тестирование нейрона:</strong><br><br>';
+            
+            trainingData.forEach((data, idx) => {
+                const output = neuronForTraining.forward(data.inputs);
+                const rounded = Math.round(output);
+                const correct = rounded === data.target ? '✓' : '✗';
+                
+                logHTML += `Вход: [${data.inputs}] → Выход: ${output.toFixed(4)} ≈ ${rounded} (ожидается: ${data.target}) ${correct}<br>`;
+            });
+
+            logHTML += '<br><strong>Текущие веса:</strong><br>';
+            logHTML += `W₁ = ${neuronForTraining.weights[0].toFixed(4)}<br>`;
+            logHTML += `W₂ = ${neuronForTraining.weights[1].toFixed(4)}<br>`;
+            logHTML += `Bias = ${neuronForTraining.bias.toFixed(4)}`;
+
+            document.getElementById('logContent').innerHTML = logHTML;
+        }
+
+        function drawTrainingGraph() {
+            const canvas = document.getElementById('trainingCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            if (errorHistory.length === 0) {
+                ctx.fillStyle = '#999';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('График ошибки обучения (начните обучение)', width / 2, height / 2);
+                return;
+            }
+
+            // Оси
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(50, height - 50);
+            ctx.lineTo(width - 50, height - 50);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(50, 20);
+            ctx.lineTo(50, height - 50);
+            ctx.stroke();
+
+            // График ошибки
+            ctx.strokeStyle = '#e91e63';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            const maxError = Math.max(...errorHistory, 0.1);
+            const xStep = (width - 100) / Math.max(errorHistory.length - 1, 1);
+
+            errorHistory.forEach((error, i) => {
+                const x = 50 + i * xStep;
+                const y = height - 50 - (error / maxError) * (height - 70);
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+
+            // Метки
+            ctx.fillStyle = '#333';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Эпоха', width / 2, height - 15);
+            
+            ctx.save();
+            ctx.translate(15, height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Ошибка', 0, 0);
+            ctx.restore();
+
+            // Значения
+            ctx.font = '12px Arial';
+            ctx.fillText('0', 50, height - 35);
+            ctx.fillText(trainingEpoch.toString(), width - 50, height - 35);
+            ctx.textAlign = 'right';
+            ctx.fillText(maxError.toFixed(2), 45, 25);
+            ctx.fillText('0', 45, height - 50);
+        }
+
+        // Обработчики событий
+        function updateDisplay(id, value) {
+            document.getElementById(id + '-display').textContent = parseFloat(value).toFixed(2);
+            
+            // Обновление визуальных полос для весов
+            if (id.startsWith('w')) {
+                const percentage = ((parseFloat(value) + 2) / 4) * 100;
+                const bar = document.getElementById(id + '-bar');
+                bar.style.width = percentage + '%';
+                bar.textContent = parseFloat(value).toFixed(2);
+            }
+            
+            calculateOutput();
+            drawNeuron();
+            drawActivationGraph();
+            drawFunctionGraph();
+        }
+
+        // Привязка событий к слайдерам
+        ['x1', 'x2', 'x3', 'w1', 'w2', 'w3', 'bias'].forEach(id => {
+            document.getElementById(id).addEventListener('input', (e) => {
+                updateDisplay(id, e.target.value);
+            });
+        });
+
+        document.getElementById('learningRate').addEventListener('input', (e) => {
+            document.getElementById('lr-display').textContent = parseFloat(e.target.value).toFixed(2);
+        });
+
+        // Переключение функции активации
+        document.querySelectorAll('.activation-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.activation-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentActivation = btn.dataset.activation;
+                calculateOutput();
+                drawNeuron();
+                drawActivationGraph();
+                drawFunctionGraph();
+            });
+        });
+
+        // Инициализация
+        calculateOutput();
+        drawNeuron();
+        drawActivationGraph();
+        drawFunctionGraph();
+        drawTrainingGraph();
+    </script>
+</body>
+</html>
