@@ -517,11 +517,29 @@ const GATES = {
 // Метки скоростей анимации
 const SPEED_LABELS = ['очень медленно', 'медленно', 'средняя', 'быстро', 'мгновенно'];
 
-// Максимальное количество эпох
+// Максимальное количество эпох обучения
 const MAX_EPOCHS = 2000;
 
 // Минимальное количество итераций на кадр в зависимости от уровня скорости
 const STEPS_PER_FRAME = [1, 3, 8, 25, 100];
+
+// Диапазон начальной инициализации весов: веса берутся из [-WEIGHT_INIT_RANGE, +WEIGHT_INIT_RANGE]
+const WEIGHT_INIT_RANGE = 0.2;
+
+// Максимальное абсолютное значение веса, отображаемое на полосах (bar normalization: [-MAX_WEIGHT_VIS, +MAX_WEIGHT_VIS] → 0–100%)
+const MAX_WEIGHT_VIS = 2;
+
+// Максимальное количество точек в историях потерь/весов (прореживание для экономии памяти)
+const MAX_HISTORY_POINTS = 400;
+
+// Порог ошибки для ранней остановки обучения
+const EARLY_STOP_THRESHOLD = 0.0001;
+
+// Шаг пикселей при отрисовке тепловой карты границы решения (меньше = качественнее, но медленнее)
+const BOUNDARY_RENDER_STEP = 3;
+
+// Шаг прореживания истории: сохраняем одну точку каждые HISTORY_STRIDE эпох
+const HISTORY_STRIDE = Math.max(1, Math.floor(MAX_EPOCHS / MAX_HISTORY_POINTS));
 
 /* ===========================================================
    СОСТОЯНИЕ ПРИЛОЖЕНИЯ
@@ -600,9 +618,9 @@ function calcAccuracy() {
 
 function init() {
   // Небольшие случайные начальные веса для запуска градиентного спуска
-  w1   = (Math.random() - 0.5) * 0.4;
-  w2   = (Math.random() - 0.5) * 0.4;
-  bias = (Math.random() - 0.5) * 0.4;
+  w1   = (Math.random() - 0.5) * 2 * WEIGHT_INIT_RANGE;
+  w2   = (Math.random() - 0.5) * 2 * WEIGHT_INIT_RANGE;
+  bias = (Math.random() - 0.5) * 2 * WEIGHT_INIT_RANGE;
   epoch        = 0;
   lossHistory  = [];
   w1History    = [];
@@ -662,17 +680,16 @@ function animLoop() {
     const loss = trainEpoch(lr);
     epoch++;
 
-    // Записываем в историю каждые N шагов, чтобы графики не разбухали
-    const stride = Math.max(1, Math.floor(MAX_EPOCHS / 400));
-    if (epoch % stride === 0 || epoch === 1) {
+    // Записываем в историю каждые HISTORY_STRIDE шагов, чтобы графики не разбухали
+    if (epoch % HISTORY_STRIDE === 0 || epoch === 1) {
       lossHistory.push(loss);
       w1History.push(w1);
       w2History.push(w2);
       biasHistory.push(bias);
     }
 
-    // Ранняя остановка: очень маленькая ошибка (не для XOR — он не сойдётся)
-    if (loss < 0.0001 && currentGate !== 'XOR') {
+    // Ранняя остановка: ошибка ниже порога (не для XOR — он не сойдётся)
+    if (loss < EARLY_STOP_THRESHOLD && currentGate !== 'XOR') {
       epoch++; // последний шаг
       finishTraining();
       return;
@@ -739,13 +756,14 @@ function updateStats(loss) {
   accEl.className   = 'stat-value' + (acc >= 100 ? ' good' : acc >= 75 ? '' : ' warn');
 }
 
-// Обновить полосы весов (диапазон −2…+2 → 0…100%)
+// Обновить полосы весов: диапазон [-MAX_WEIGHT_VIS, +MAX_WEIGHT_VIS] → 0–100%
 function updateWeightBars() {
   const weights = { w1, w2, bias };
   const ids     = { w1: 'w1', w2: 'w2', bias: 'b' };
+  const range   = MAX_WEIGHT_VIS * 2; // полный диапазон полосы
   for (const [key, id] of Object.entries(ids)) {
     const val  = weights[key];
-    const pct  = ((val + 2) / 4) * 100;           // нормируем к [0,100]
+    const pct  = ((val + MAX_WEIGHT_VIS) / range) * 100; // нормируем к [0,100]
     const fill = document.getElementById('bar-' + id);
     const valEl= document.getElementById('val-'  + id);
     valEl.textContent = val.toFixed(3);
@@ -983,8 +1001,8 @@ function drawBoundary() {
   const pw   = W - pad * 2; // ширина рабочей области
   const ph   = H - pad * 2; // высота рабочей области
 
-  // Рисуем карту активации попиксельно (ступенчато для быстроты)
-  const step  = 3;
+  // Рисуем карту активации попиксельно (ступенчато для быстроты, размер шага = BOUNDARY_RENDER_STEP)
+  const step  = BOUNDARY_RENDER_STEP;
   const gateColor = GATES[currentGate].color;
 
   for (let px = 0; px < pw; px += step) {
@@ -1194,15 +1212,14 @@ function drawLossChart() {
   ctx.lineWidth   = 2;
   ctx.stroke();
 
-  // Ось X: метки
+  // Ось X: метки (используем глобальный HISTORY_STRIDE для вычисления реальных номеров эпох)
   ctx.fillStyle    = 'rgba(139,148,158,0.7)';
   ctx.font         = '10px monospace';
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'top';
-  const stride = Math.max(1, Math.floor(MAX_EPOCHS / 400));
-  ctx.fillText('0',                          padL,       padT + ch + 5);
-  ctx.fillText('' + (n * stride / 2 | 0),   padL + cw / 2, padT + ch + 5);
-  ctx.fillText('' + (n * stride),            padL + cw,  padT + ch + 5);
+  ctx.fillText('0',                                    padL,          padT + ch + 5);
+  ctx.fillText('' + (n * HISTORY_STRIDE / 2 | 0),     padL + cw / 2, padT + ch + 5);
+  ctx.fillText('' + (n * HISTORY_STRIDE),              padL + cw,     padT + ch + 5);
 
   // Метка оси Y
   ctx.save();
