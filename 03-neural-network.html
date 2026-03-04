@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Многослойная нейронная сеть</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --border:    #30363d;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --accent:    #58a6ff;
+    --green:     #3fb950;
+    --red:       #f85149;
+    --yellow:    #d29922;
+    --purple:    #bc8cff;
+    --orange:    #ffa657;
+    --radius:    10px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── шапка ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  header .icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  header h1 { font-size: 20px; font-weight: 700; }
+  header p  { color: var(--muted); font-size: 13px; }
+
+  /* ── главная сетка ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    grid-template-rows: auto 1fr;
+    gap: 16px;
+    padding: 16px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  /* ── карточки ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .card h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .card h2 span { color: var(--accent); font-size: 16px; }
+
+  /* ── кнопки ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    border: none; border-radius: 6px;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: filter .15s, transform .1s;
+    white-space: nowrap;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn:hover  { filter: brightness(1.15); }
+
+  .btn-primary  { background: var(--accent);  color: #000; }
+  .btn-success  { background: var(--green);   color: #000; }
+  .btn-danger   { background: var(--red);     color: #fff; }
+  .btn-neutral  { background: #21262d;        color: var(--text); border: 1px solid var(--border); }
+  .btn-purple   { background: var(--purple);  color: #000; }
+  .btn-sm { padding: 4px 9px; font-size: 12px; border-radius: 5px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: none; }
+
+  /* ── контролы слоёв ── */
+  .layer-ctrl { margin-bottom: 12px; }
+  .layer-ctrl label {
+    display: block; font-size: 12px; color: var(--muted);
+    margin-bottom: 6px; font-weight: 500;
+  }
+  .layer-ctrl .row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .layer-ctrl .count {
+    font-size: 20px; font-weight: 700;
+    min-width: 28px; text-align: center;
+    color: var(--accent);
+  }
+  .layer-tag {
+    display: inline-block;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .tag-input  { background: rgba(63,185,80,.18);  color: var(--green);  }
+  .tag-hidden { background: rgba(188,140,255,.18); color: var(--purple); }
+  .tag-output { background: rgba(255,166,87,.18);  color: var(--orange); }
+
+  /* ── слайдеры входов ── */
+  .slider-wrap { margin-bottom: 10px; }
+  .slider-wrap label {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted); margin-bottom: 4px;
+  }
+  .slider-wrap label span { color: var(--text); font-weight: 600; }
+  input[type=range] {
+    width: 100%; accent-color: var(--accent);
+    height: 4px; cursor: pointer;
+  }
+
+  /* ── канвас сети ── */
+  #networkCanvas {
+    width: 100%; height: 420px;
+    display: block; border-radius: 8px;
+    background: #0a0e13;
+  }
+
+  /* ── кнопки управления (над канвасом) ── */
+  .canvas-controls {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  /* ── тепловая карта ── */
+  #heatmapCanvas {
+    width: 100%; border-radius: 6px;
+    display: block; background: #0a0e13;
+    image-rendering: pixelated;
+  }
+
+  /* ── статистика ── */
+  .stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-bottom: 14px;
+  }
+  .stat-item {
+    background: #0d1117; border: 1px solid var(--border);
+    border-radius: 7px; padding: 10px;
+    text-align: center;
+  }
+  .stat-item .val { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .stat-item .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ── активации ── */
+  .activation-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px;
+  }
+  .activation-row .neuron-id {
+    font-size: 11px; color: var(--muted); min-width: 30px;
+  }
+  .activation-bar-wrap {
+    flex: 1; height: 16px; background: #0d1117;
+    border-radius: 3px; overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .activation-bar {
+    height: 100%; border-radius: 3px;
+    transition: width .3s, background .3s;
+  }
+  .activation-val {
+    font-size: 11px; font-weight: 600;
+    min-width: 42px; text-align: right;
+    color: var(--text);
+  }
+
+  /* ── лог прогресса ── */
+  #logBox {
+    background: #0d1117; border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px;
+    font-size: 12px; font-family: monospace;
+    height: 90px; overflow-y: auto;
+    color: var(--muted); line-height: 1.6;
+    margin-top: 10px;
+  }
+  #logBox .ok  { color: var(--green);  }
+  #logBox .inf { color: var(--accent); }
+
+  /* ── разделитель секций ── */
+  .section-sep {
+    border: none; border-top: 1px solid var(--border);
+    margin: 14px 0;
+  }
+
+  /* ── легенда весов ── */
+  .legend {
+    display: flex; gap: 10px; margin-top: 6px;
+    font-size: 11px; color: var(--muted);
+    align-items: center;
+  }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 2px;
+  }
+
+  /* ── колонки ── */
+  .col-left  { grid-column: 1; grid-row: 1 / 3; }
+  .col-mid   { grid-column: 2; grid-row: 1 / 3; display: flex; flex-direction: column; gap: 14px; }
+  .col-right { grid-column: 3; grid-row: 1 / 3; display: flex; flex-direction: column; gap: 14px; }
+
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr 1fr; }
+    .col-left  { grid-column: 1; grid-row: 1; }
+    .col-mid   { grid-column: 1 / 3; grid-row: 2; }
+    .col-right { grid-column: 2; grid-row: 1; }
+  }
+  @media (max-width: 680px) {
+    .layout { grid-template-columns: 1fr; }
+    .col-left, .col-mid, .col-right { grid-column: 1; grid-row: auto; }
+  }
+
+  /* ── progress кольцо ── */
+  .ring-wrap { display: flex; justify-content: center; margin: 6px 0; }
+  #progressRing { transform: rotate(-90deg); }
+  .ring-text { fill: var(--text); font-size: 14px; font-weight: 700;
+               dominant-baseline: middle; text-anchor: middle; transform: rotate(90deg) translateX(10px); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="icon">🧠</div>
+  <div>
+    <h1>Многослойная нейронная сеть</h1>
+    <p>Интерактивная визуализация прямого распространения сигнала</p>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ══════════════ ЛЕВАЯ КОЛОНКА ══════════════ -->
+  <div class="col-left">
+
+    <!-- Архитектура -->
+    <div class="card">
+      <h2><span>⚙</span> Архитектура сети</h2>
+
+      <div class="layer-ctrl">
+        <div class="layer-tag tag-input">Входной слой</div>
+        <label>Нейронов (2–6)</label>
+        <div class="row">
+          <button class="btn btn-neutral btn-sm" onclick="changeLayer('input',-1)">−</button>
+          <span class="count" id="inputCount">3</span>
+          <button class="btn btn-neutral btn-sm" onclick="changeLayer('input',+1)">+</button>
+        </div>
+      </div>
+
+      <div class="layer-ctrl">
+        <div class="layer-tag tag-hidden">Скрытый слой</div>
+        <label>Нейронов (2–8)</label>
+        <div class="row">
+          <button class="btn btn-neutral btn-sm" onclick="changeLayer('hidden',-1)">−</button>
+          <span class="count" id="hiddenCount">4</span>
+          <button class="btn btn-neutral btn-sm" onclick="changeLayer('hidden',+1)">+</button>
+        </div>
+      </div>
+
+      <div class="layer-ctrl">
+        <div class="layer-tag tag-output">Выходной слой</div>
+        <label>Нейронов (1–4)</label>
+        <div class="row">
+          <button class="btn btn-neutral btn-sm" onclick="changeLayer('output',-1)">−</button>
+          <span class="count" id="outputCount">2</span>
+          <button class="btn btn-neutral btn-sm" onclick="changeLayer('output',+1)">+</button>
+        </div>
+      </div>
+
+      <hr class="section-sep">
+      <button class="btn btn-neutral" style="width:100%" onclick="rebuildNetwork()">🔄 Перестроить сеть</button>
+    </div>
+
+    <!-- Входные значения -->
+    <div class="card" style="margin-top:14px">
+      <h2><span>🎛</span> Входные значения</h2>
+      <div id="inputSliders"></div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="card" style="margin-top:14px">
+      <h2><span>📊</span> Статистика сети</h2>
+      <div class="stat-grid">
+        <div class="stat-item"><div class="val" id="statNeurons">9</div><div class="lbl">нейронов</div></div>
+        <div class="stat-item"><div class="val" id="statConnections">20</div><div class="lbl">связей</div></div>
+        <div class="stat-item"><div class="val" id="statWeights">20</div><div class="lbl">весов</div></div>
+        <div class="stat-item"><div class="val" id="statLayers">3</div><div class="lbl">слоёв</div></div>
+      </div>
+      <div id="logBox"><span class="inf">// Готово к работе</span></div>
+    </div>
+
+  </div><!-- /col-left -->
+
+  <!-- ══════════════ ЦЕНТРАЛЬНАЯ КОЛОНКА ══════════════ -->
+  <div class="col-mid">
+
+    <!-- Канвас сети -->
+    <div class="card">
+      <h2><span>🕸</span> Граф нейронной сети</h2>
+      <div class="canvas-controls">
+        <button class="btn btn-primary" id="forwardBtn" onclick="startForwardPass()">▶ Запустить прямое распространение</button>
+        <button class="btn btn-neutral" onclick="resetActivations()">↺ Сбросить</button>
+        <button class="btn btn-purple" onclick="randomizeWeights()">🎲 Случайные веса</button>
+      </div>
+      <canvas id="networkCanvas"></canvas>
+    </div>
+
+    <!-- Активации по слоям -->
+    <div class="card">
+      <h2><span>⚡</span> Активации нейронов</h2>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px">
+        <div>
+          <div class="layer-tag tag-input" style="margin-bottom:8px">Входной</div>
+          <div id="actInput"></div>
+        </div>
+        <div>
+          <div class="layer-tag tag-hidden" style="margin-bottom:8px">Скрытый</div>
+          <div id="actHidden"></div>
+        </div>
+        <div>
+          <div class="layer-tag tag-output" style="margin-bottom:8px">Выходной</div>
+          <div id="actOutput"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /col-mid -->
+
+  <!-- ══════════════ ПРАВАЯ КОЛОНКА ══════════════ -->
+  <div class="col-right">
+
+    <!-- Тепловая карта весов -->
+    <div class="card">
+      <h2><span>🌡</span> Тепловая карта весов</h2>
+      <canvas id="heatmapCanvas" height="200"></canvas>
+      <div class="legend">
+        <div class="legend-dot" style="background:var(--red)"></div> отрицательный
+        <div class="legend-dot" style="background:#1a1a2e"></div> ≈ 0
+        <div class="legend-dot" style="background:var(--accent)"></div> положительный
+      </div>
+      <hr class="section-sep">
+      <div style="font-size:12px; color:var(--muted); margin-bottom:8px">
+        <b style="color:var(--text)">Слой 1→2</b> (вход → скрытый)
+      </div>
+      <canvas id="heatmap1Canvas" height="100"></canvas>
+      <div style="font-size:12px; color:var(--muted); margin:8px 0">
+        <b style="color:var(--text)">Слой 2→3</b> (скрытый → выходной)
+      </div>
+      <canvas id="heatmap2Canvas" height="80"></canvas>
+    </div>
+
+    <!-- Диапазон весов -->
+    <div class="card">
+      <h2><span>📈</span> Диапазон весов</h2>
+      <div class="stat-grid">
+        <div class="stat-item"><div class="val" id="wMin" style="font-size:16px">—</div><div class="lbl">минимум</div></div>
+        <div class="stat-item"><div class="val" id="wMax" style="font-size:16px">—</div><div class="lbl">максимум</div></div>
+        <div class="stat-item"><div class="val" id="wMean" style="font-size:16px">—</div><div class="lbl">среднее</div></div>
+        <div class="stat-item"><div class="val" id="wStd" style="font-size:16px">—</div><div class="lbl">std. откл.</div></div>
+      </div>
+      <button class="btn btn-neutral" style="width:100%; margin-top:4px" onclick="randomizeWeights()">🎲 Рандомизировать веса</button>
+    </div>
+
+    <!-- Функция активации -->
+    <div class="card">
+      <h2><span>∫</span> Функция активации</h2>
+      <div style="margin-bottom:10px">
+        <select id="activationSelect" onchange="onActivationChange()"
+          style="background:#0d1117;color:var(--text);border:1px solid var(--border);
+                 border-radius:6px;padding:6px 10px;width:100%;font-size:13px;cursor:pointer">
+          <option value="sigmoid">Sigmoid  σ(x)</option>
+          <option value="relu">ReLU  max(0,x)</option>
+          <option value="tanh">Tanh  tanh(x)</option>
+          <option value="leaky">Leaky ReLU</option>
+        </select>
+      </div>
+      <canvas id="activationCanvas" width="240" height="100"
+        style="width:100%;border-radius:6px;background:#0a0e13;display:block"></canvas>
+    </div>
+
+  </div><!-- /col-right -->
+
+</div><!-- /layout -->
+
+<script>
+/* ════════════════════════════════════════════════
+   СОСТОЯНИЕ СЕТИ
+════════════════════════════════════════════════ */
+const NET = {
+  sizes: [3, 4, 2],           // текущая архитектура
+  weights: [],                 // [layerIdx][to][from]
+  biases:  [],                 // [layerIdx][neuron]
+  inputs:  [],                 // значения входных нейронов (~0.2..0.8)
+  activations: [],             // [layerIdx][neuron]
+  activationFn: 'sigmoid',
+
+  /* limits */
+  MIN: [2, 2, 1],
+  MAX: [6, 8, 4],
+};
+
+/* анимация */
+const ANIM = {
+  running: false,
+  phase: 0,          // 0 = idle, 1..N = шаг
+  progress: 0,       // 0..1 внутри шага
+  glowConn: [],      // [[l,i,j, progress]]
+  glowNeuron: [],    // [[l,n, progress]]
+  timer: null,
+};
+
+/* ════════════════════════════════════════════════
+   ИНИЦИАЛИЗАЦИЯ
+════════════════════════════════════════════════ */
+function sigmoid(x)  { return 1 / (1 + Math.exp(-x)); }
+function relu(x)     { return Math.max(0, x); }
+function tanh_(x)    { return Math.tanh(x); }
+function leaky(x)    { return x >= 0 ? x : 0.01 * x; }
+
+function activate(x) {
+  switch (NET.activationFn) {
+    case 'sigmoid': return sigmoid(x);
+    case 'relu':    return relu(x);
+    case 'tanh':    return tanh_(x);
+    case 'leaky':   return leaky(x);
+  }
+}
+
+const WEIGHT_INIT_SCALE = 1.5;   // инициализационный диапазон весов: [-1.5, 1.5]
+function randW() { return (Math.random() * 2 - 1) * WEIGHT_INIT_SCALE; }
+
+function buildWeights() {
+  NET.weights = [];
+  NET.biases  = [];
+  for (let l = 1; l < NET.sizes.length; l++) {
+    const to   = NET.sizes[l];
+    const from = NET.sizes[l - 1];
+    const wMat = Array.from({length: to}, () =>
+      Array.from({length: from}, randW)
+    );
+    const bVec = Array.from({length: to}, randW);
+    NET.weights.push(wMat);
+    NET.biases.push(bVec);
+  }
+}
+
+function initInputs() {
+  const n = NET.sizes[0];
+  NET.inputs = Array.from({length: n}, (_, i) =>
+    parseFloat((0.2 + i * (0.6 / Math.max(n - 1, 1))).toFixed(2))
+  );
+}
+
+function forwardPass() {
+  NET.activations = [];
+  NET.activations.push([...NET.inputs]);
+  for (let l = 0; l < NET.weights.length; l++) {
+    const prev = NET.activations[l];
+    const cur  = NET.weights[l].map((row, j) => {
+      const sum = row.reduce((s, w, k) => s + w * prev[k], 0) + NET.biases[l][j];
+      return activate(sum);
+    });
+    NET.activations.push(cur);
+  }
+}
+
+function initNetwork() {
+  buildWeights();
+  initInputs();
+  forwardPass();
+  renderInputSliders();
+  updateStats();
+  renderActivations();
+  drawNetwork();
+  drawAllHeatmaps();
+  drawActivationCurve();
+  drawWeightStats();
+}
+
+function rebuildNetwork() {
+  stopAnimation();
+  buildWeights();
+  initInputs();
+  forwardPass();
+  renderInputSliders();
+  updateStats();
+  renderActivations();
+  drawNetwork();
+  drawAllHeatmaps();
+  drawWeightStats();
+  log('🔄 Сеть перестроена: ' + NET.sizes.join(' → '), 'inf');
+}
+
+/* ════════════════════════════════════════════════
+   КОНТРОЛЫ АРХИТЕКТУРЫ
+════════════════════════════════════════════════ */
+function changeLayer(layer, delta) {
+  const idx = {input:0, hidden:1, output:2}[layer];
+  const next = NET.sizes[idx] + delta;
+  if (next < NET.MIN[idx] || next > NET.MAX[idx]) return;
+  NET.sizes[idx] = next;
+  document.getElementById({input:'inputCount',hidden:'hiddenCount',output:'outputCount'}[layer]).textContent = next;
+}
+
+/* ════════════════════════════════════════════════
+   ВХОДНЫЕ СЛАЙДЕРЫ
+════════════════════════════════════════════════ */
+function renderInputSliders() {
+  const box = document.getElementById('inputSliders');
+  box.innerHTML = '';
+  NET.inputs.forEach((val, i) => {
+    const id = 'inp' + i;
+    const wrap = document.createElement('div');
+    wrap.className = 'slider-wrap';
+    wrap.innerHTML = `
+      <label>Вход x<sub>${i+1}</sub> <span id="lbl_${id}">${val.toFixed(2)}</span></label>
+      <input type="range" id="${id}" min="0" max="1" step="0.01" value="${val}">
+    `;
+    box.appendChild(wrap);
+    wrap.querySelector('input').addEventListener('input', e => {
+      NET.inputs[i] = parseFloat(e.target.value);
+      document.getElementById('lbl_' + id).textContent = NET.inputs[i].toFixed(2);
+      forwardPass();
+      renderActivations();
+      drawNetwork();
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════
+   СТАТИСТИКА
+════════════════════════════════════════════════ */
+function updateStats() {
+  const neurons     = NET.sizes.reduce((a, b) => a + b, 0);
+  const connections = NET.weights.reduce((s, wl) =>
+    s + wl.reduce((ss, row) => ss + row.length, 0), 0);
+  document.getElementById('statNeurons').textContent     = neurons;
+  document.getElementById('statConnections').textContent = connections;
+  document.getElementById('statWeights').textContent     = connections;
+  document.getElementById('statLayers').textContent      = NET.sizes.length;
+}
+
+function drawWeightStats() {
+  const all = NET.weights.flatMap(wl => wl.flatMap(row => row));
+  if (!all.length) return;
+  const min  = Math.min(...all);
+  const max  = Math.max(...all);
+  const mean = all.reduce((a,b)=>a+b,0) / all.length;
+  const std  = Math.sqrt(all.reduce((s,w)=>s+(w-mean)**2,0)/all.length);
+  document.getElementById('wMin').textContent  = min.toFixed(3);
+  document.getElementById('wMax').textContent  = max.toFixed(3);
+  document.getElementById('wMean').textContent = mean.toFixed(3);
+  document.getElementById('wStd').textContent  = std.toFixed(3);
+}
+
+/* ════════════════════════════════════════════════
+   ВИЗУАЛИЗАЦИЯ АКТИВАЦИЙ
+════════════════════════════════════════════════ */
+function renderActivations() {
+  const ids  = ['actInput', 'actHidden', 'actOutput'];
+  const clrs = ['var(--green)', 'var(--purple)', 'var(--orange)'];
+  ids.forEach((id, l) => {
+    const box  = document.getElementById(id);
+    const acts = NET.activations[l] || [];
+    box.innerHTML = '';
+    acts.forEach((v, i) => {
+      const pct  = Math.min(100, Math.abs(v) * 100);
+      const clr  = clrs[l];
+      const row  = document.createElement('div');
+      row.className = 'activation-row';
+      row.innerHTML = `
+        <span class="neuron-id">n${i+1}</span>
+        <div class="activation-bar-wrap">
+          <div class="activation-bar" style="width:${pct}%;background:${clr}"></div>
+        </div>
+        <span class="activation-val">${v.toFixed(3)}</span>
+      `;
+      box.appendChild(row);
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════
+   ЛОГИРОВАНИЕ
+════════════════════════════════════════════════ */
+function log(msg, cls='') {
+  const box = document.getElementById('logBox');
+  const el  = document.createElement('div');
+  el.className = cls;
+  el.textContent = msg;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ════════════════════════════════════════════════
+   РИСОВАНИЕ СЕТИ (CANVAS)
+════════════════════════════════════════════════ */
+const COLORS = {
+  input:  '#3fb950',
+  hidden: '#bc8cff',
+  output: '#ffa657',
+  bg:     '#0a0e13',
+  connPos:'#58a6ff',
+  connNeg:'#f85149',
+  glow:   '#ffe566',
+};
+
+function getNeuronPos(canvas) {
+  const W = canvas.width, H = canvas.height;
+  const layerX = NET.sizes.map((_, l) => {
+    const n = NET.sizes.length;
+    return W * (l + 1) / (n + 1);
+  });
+  const positions = NET.sizes.map((count, l) => {
+    return Array.from({length: count}, (_, i) => {
+      const y = H * (i + 1) / (count + 1);
+      return {x: layerX[l], y};
+    });
+  });
+  return positions;
+}
+
+function drawNetwork(animState) {
+  const canvas = document.getElementById('networkCanvas');
+  const dpr = window.devicePixelRatio || 1;
+
+  // синхронизируем размер
+  const rect = canvas.getBoundingClientRect();
+  if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+    canvas.width  = rect.width  * dpr;
+    canvas.height = rect.height * dpr;
+  }
+
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = rect.width, H = rect.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // фон
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const pos      = getNeuronPos({width: W, height: H});
+  const R        = Math.max(14, Math.min(24, H / (Math.max(...NET.sizes) * 2.2)));
+  const layerClr = [COLORS.input, COLORS.hidden, COLORS.output];
+  const labels   = ['Входной', 'Скрытый', 'Выходной'];
+
+  // собираем светящиеся связи и нейроны из аним-стейта
+  const glowConns   = animState ? animState.glowConn   : [];
+  const glowNeurons = animState ? animState.glowNeuron : [];
+
+  /* ── связи ── */
+  for (let l = 0; l < NET.weights.length; l++) {
+    for (let j = 0; j < NET.sizes[l+1]; j++) {
+      for (let k = 0; k < NET.sizes[l]; k++) {
+        const w    = NET.weights[l][j][k];
+        const from = pos[l][k];
+        const to   = pos[l+1][j];
+
+        // проверяем, светится ли эта связь
+        const gc = glowConns.find(g => g[0]===l && g[1]===j && g[2]===k);
+        const gp = gc ? gc[3] : 0;
+
+        const baseAlpha = Math.min(1, 0.12 + Math.abs(w) * 0.25);
+        const lw        = Math.max(0.5, Math.abs(w) * 2.2);
+        const col       = w >= 0 ? COLORS.connPos : COLORS.connNeg;
+
+        if (gp > 0) {
+          // рисуем частичную линию с градиентом
+          const grd = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+          grd.addColorStop(0,   COLORS.glow + 'ff');
+          grd.addColorStop(gp,  COLORS.glow + 'cc');
+          grd.addColorStop(Math.min(1, gp + 0.05), col + '00');
+          grd.addColorStop(1,   col + '00');
+
+          ctx.beginPath();
+          ctx.moveTo(from.x, from.y);
+          ctx.lineTo(to.x, to.y);
+          ctx.strokeStyle = grd;
+          ctx.lineWidth   = lw + 1.5;
+          ctx.stroke();
+
+          // тонкая базовая линия
+          ctx.beginPath();
+          ctx.moveTo(from.x, from.y);
+          ctx.lineTo(to.x, to.y);
+          ctx.strokeStyle = col + Math.round(baseAlpha * 255).toString(16).padStart(2,'0');
+          ctx.lineWidth   = lw;
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(from.x, from.y);
+          ctx.lineTo(to.x, to.y);
+          ctx.strokeStyle = col + Math.round(baseAlpha * 255).toString(16).padStart(2,'0');
+          ctx.lineWidth   = lw;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  /* ── нейроны ── */
+  for (let l = 0; l < NET.sizes.length; l++) {
+    for (let n = 0; n < NET.sizes[l]; n++) {
+      const p     = pos[l][n];
+      const act   = (NET.activations[l] || [])[n] ?? 0;
+      const baseC = layerClr[l];
+      const gn    = glowNeurons.find(g => g[0]===l && g[1]===n);
+      const glow  = gn ? gn[2] : 0;
+
+      // тень/glow
+      if (glow > 0) {
+        ctx.shadowColor = COLORS.glow;
+        ctx.shadowBlur  = 18 * glow;
+      }
+
+      // заливка
+      const alpha = 0.2 + Math.abs(act) * 0.75;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, R, 0, Math.PI * 2);
+
+      const grad = ctx.createRadialGradient(p.x - R*.3, p.y - R*.3, R*.1, p.x, p.y, R);
+      const hex  = glow > 0
+        ? lerpColor(baseC, COLORS.glow, glow * .6)
+        : baseC;
+      grad.addColorStop(0, hex + 'ff');
+      grad.addColorStop(1, hex + Math.round(alpha * 255).toString(16).padStart(2,'0'));
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.shadowBlur  = 0;
+      ctx.shadowColor = 'transparent';
+
+      // обводка
+      ctx.strokeStyle = glow > 0 ? COLORS.glow : baseC;
+      ctx.lineWidth   = glow > 0 ? 2.5 : 1.5;
+      ctx.stroke();
+
+      // значение внутри
+      ctx.fillStyle   = '#fff';
+      ctx.font        = `bold ${Math.max(9, R * .55)}px monospace`;
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(act.toFixed(2), p.x, p.y);
+    }
+  }
+
+  /* ── подписи слоёв ── */
+  for (let l = 0; l < NET.sizes.length; l++) {
+    const x = pos[l][0].x;
+    ctx.font = '13px "Segoe UI", sans-serif';
+    ctx.fillStyle   = layerClr[l] + 'cc';
+    ctx.textAlign   = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(labels[l], x, H - 8);
+    ctx.textBaseline = 'top';
+    ctx.fillStyle   = layerClr[l] + '88';
+    ctx.font = '11px monospace';
+    ctx.fillText(`(${NET.sizes[l]})`, x, 8);
+  }
+}
+
+/* вспомогательная: интерполяция цветов (#rrggbb) */
+function lerpColor(a, b, t) {
+  const parse = s => [
+    parseInt(s.slice(1,3),16),
+    parseInt(s.slice(3,5),16),
+    parseInt(s.slice(5,7),16),
+  ];
+  const [ar,ag,ab] = parse(a);
+  const [br,bg,bb] = parse(b);
+  const r = Math.round(ar + (br-ar)*t);
+  const g = Math.round(ag + (bg-ag)*t);
+  const bl = Math.round(ab + (bb-ab)*t);
+  return '#' + [r,g,bl].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+/* ════════════════════════════════════════════════
+   АНИМАЦИЯ ПРЯМОГО РАСПРОСТРАНЕНИЯ
+════════════════════════════════════════════════ */
+function stopAnimation() {
+  if (ANIM.timer) cancelAnimationFrame(ANIM.timer);
+  ANIM.running = false;
+  ANIM.timer   = null;
+  document.getElementById('forwardBtn').disabled = false;
+}
+
+function resetActivations() {
+  stopAnimation();
+  forwardPass();
+  renderActivations();
+  drawNetwork();
+  log('↺ Активации сброшены', 'inf');
+}
+
+function startForwardPass() {
+  if (ANIM.running) return;
+  ANIM.running = true;
+  document.getElementById('forwardBtn').disabled = true;
+
+  forwardPass();
+
+  // строим план: шаги — слои
+  // каждый шаг: анимируем связи l→l+1, затем нейроны l+1
+  const totalLayers = NET.sizes.length;
+  const STEP_MS     = 700;  // длительность одного шага
+
+  let step    = 0;
+  let started = null;
+
+  log('▶ Начало прямого распространения...', 'inf');
+
+  // шаг 0 — подсветить входные нейроны
+  const glowN = NET.sizes[0];
+  const initGlows = Array.from({length: glowN}, (_, i) => [0, i, 1.0]);
+
+  function frame(ts) {
+    if (!started) started = ts;
+    const elapsed = ts - started;
+    const t = Math.min(1, elapsed / STEP_MS);
+
+    // step: 0 = входной слой, 1 = связи 0→1 + нейроны 1, 2 = связи 1→2 + нейроны 2
+    const glowConn   = [];
+    const glowNeuron = [...initGlows];
+
+    if (step === 0) {
+      // просто светим входы
+      initGlows.forEach(g => { g[2] = t; });
+      if (t >= 1) {
+        step = 1; started = ts;
+        log(`  ✓ Входной слой: [${NET.activations[0].map(v=>v.toFixed(2)).join(', ')}]`, 'ok');
+      }
+    } else {
+      const l = step - 1; // индекс слоя-источника (0 или 1)
+      if (l >= NET.weights.length) {
+        // готово
+        stopAnimation();
+        log('✅ Прямое распространение завершено!', 'ok');
+        log(`  Выходы: [${NET.activations[NET.activations.length-1].map(v=>v.toFixed(3)).join(', ')}]`, 'ok');
+        renderActivations();
+        drawNetwork({glowConn:[], glowNeuron: NET.activations.map((acts,li)=>acts.map((_,ni)=>[li,ni,0.4])).flat()});
+        return;
+      }
+      // связи l → l+1 движутся
+      for (let j = 0; j < NET.sizes[l+1]; j++) {
+        for (let k = 0; k < NET.sizes[l]; k++) {
+          glowConn.push([l, j, k, t]);
+        }
+      }
+      // нейроны l+1 загораются в конце
+      if (t > 0.5) {
+        const nt = (t - 0.5) / 0.5;
+        for (let j = 0; j < NET.sizes[l+1]; j++) {
+          glowNeuron.push([l+1, j, nt]);
+        }
+        // нейроны предыдущих слоёв немного тускнеют
+        for (let pl = 0; pl <= l; pl++) {
+          for (let pn = 0; pn < NET.sizes[pl]; pn++) {
+            const existing = glowNeuron.findIndex(g => g[0]===pl && g[1]===pn);
+            if (existing >= 0) glowNeuron[existing][2] = 0.4;
+            else glowNeuron.push([pl, pn, 0.4]);
+          }
+        }
+      }
+      if (t >= 1) {
+        step++; started = ts;
+        log(`  ✓ Слой ${l+1} → ${l+2}: активации [${NET.activations[l+1].map(v=>v.toFixed(2)).join(', ')}]`, 'ok');
+        renderActivations();
+      }
+    }
+
+    drawNetwork({glowConn, glowNeuron});
+    ANIM.timer = requestAnimationFrame(frame);
+  }
+
+  ANIM.timer = requestAnimationFrame(frame);
+}
+
+/* ════════════════════════════════════════════════
+   РАНДОМИЗАЦИЯ ВЕСОВ
+════════════════════════════════════════════════ */
+function randomizeWeights() {
+  buildWeights();
+  forwardPass();
+  renderActivations();
+  drawNetwork();
+  drawAllHeatmaps();
+  drawWeightStats();
+  log('🎲 Веса рандомизированы', 'inf');
+}
+
+/* ════════════════════════════════════════════════
+   ТЕПЛОВЫЕ КАРТЫ ВЕСОВ
+════════════════════════════════════════════════ */
+function drawHeatmap(canvasId, matrix, rows, cols) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  const CW = 22, CH = 22, PAD = 2;
+  const W  = cols * (CW + PAD) + PAD;
+  const H  = rows * (CH + PAD) + PAD;
+  canvas.width  = W;
+  canvas.height = H;
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0a0e13';
+  ctx.fillRect(0, 0, W, H);
+
+  const allVals = matrix.flat();
+  const mx = Math.max(Math.abs(Math.min(...allVals)), Math.abs(Math.max(...allVals)), 0.001);
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const v   = matrix[r][c];
+      const t   = v / mx; // -1..1
+      let clr;
+      if (t >= 0) {
+        const a = Math.round(t * 255);
+        clr = `rgb(${Math.round(t*88)}, ${Math.round(t*166)}, 255)`;
+      } else {
+        const a = Math.abs(t);
+        clr = `rgb(248, ${Math.round((1-a)*81)}, ${Math.round((1-a)*73)})`;
+      }
+      const x = PAD + c * (CW + PAD);
+      const y = PAD + r * (CH + PAD);
+      ctx.fillStyle = clr;
+      ctx.fillRect(x, y, CW, CH);
+
+      // значение
+      ctx.fillStyle = Math.abs(t) > 0.5 ? '#000' : '#888';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(v.toFixed(1), x + CW/2, y + CH/2);
+    }
+  }
+}
+
+function drawAllHeatmaps() {
+  if (NET.weights.length < 1) return;
+  drawHeatmap('heatmap1Canvas', NET.weights[0], NET.sizes[1], NET.sizes[0]);
+  if (NET.weights.length >= 2)
+    drawHeatmap('heatmap2Canvas', NET.weights[1], NET.sizes[2], NET.sizes[1]);
+
+  // большая общая карта — объединяем
+  drawCombinedHeatmap();
+}
+
+function drawCombinedHeatmap() {
+  const canvas = document.getElementById('heatmapCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.clientWidth - 32;
+  canvas.width  = W;
+  canvas.height = 200;
+  canvas.style.height = '200px';
+
+  ctx.fillStyle = '#0a0e13';
+  ctx.fillRect(0, 0, W, 200);
+
+  // показываем нормализованный прямоугольник весов для каждого слоя
+  const gap  = 12;
+  const nLayers = NET.weights.length;
+  const segW = (W - gap * (nLayers + 1)) / nLayers;
+  const H = 200;
+
+  NET.weights.forEach((wMat, li) => {
+    const rows = wMat.length;
+    const cols = wMat[0].length;
+    const allV = wMat.flat();
+    const mx   = Math.max(Math.abs(Math.min(...allV)), Math.abs(Math.max(...allV)), 0.001);
+
+    const ox = gap + li * (segW + gap);
+    const cellW = segW / cols;
+    const cellH = (H - 30) / rows;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const v = wMat[r][c];
+        const t = v / mx;
+        let clr;
+        if (t >= 0) clr = `rgba(88,166,255,${0.15 + t * 0.85})`;
+        else        clr = `rgba(248,81,73,${0.15 + Math.abs(t) * 0.85})`;
+
+        ctx.fillStyle = clr;
+        ctx.fillRect(ox + c * cellW, r * cellH, cellW - 1, cellH - 1);
+      }
+    }
+    // подпись
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`L${li+1}→L${li+2}  (${rows}×${cols})`, ox + segW / 2, H - 8);
+  });
+}
+
+/* ════════════════════════════════════════════════
+   КРИВАЯ ФУНКЦИИ АКТИВАЦИИ
+════════════════════════════════════════════════ */
+function onActivationChange() {
+  NET.activationFn = document.getElementById('activationSelect').value;
+  forwardPass();
+  renderActivations();
+  drawNetwork();
+  drawActivationCurve();
+  log(`∫ Функция активации: ${NET.activationFn}`, 'inf');
+}
+
+function drawActivationCurve() {
+  const canvas = document.getElementById('activationCanvas');
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#0a0e13';
+  ctx.fillRect(0,0,W,H);
+
+  const padX = 24, padY = 10;
+  const iW = W - padX * 2, iH = H - padY * 2;
+
+  // оси
+  ctx.strokeStyle = '#30363d';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padX, padY); ctx.lineTo(padX, padY + iH);
+  ctx.moveTo(padX, padY + iH/2); ctx.lineTo(padX + iW, padY + iH/2);
+  ctx.stroke();
+
+  // метки
+  ctx.fillStyle = '#8b949e'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('1', padX - 3, padY + 4);
+  ctx.fillText('0', padX - 3, padY + iH/2 + 4);
+
+  // кривая
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth   = 2;
+  ctx.beginPath();
+  for (let px = 0; px <= iW; px++) {
+    const x = -4 + (px / iW) * 8;
+    const y = activate(x);
+    const canX = padX + px;
+    const canY = padY + iH - (y + (NET.activationFn === 'tanh' ? 1 : 0)) /
+      (NET.activationFn === 'tanh' ? 2 : 1) * iH;
+    if (px === 0) ctx.moveTo(canX, canY);
+    else          ctx.lineTo(canX, canY);
+  }
+  ctx.stroke();
+}
+
+/* ════════════════════════════════════════════════
+   РЕСАЙЗ
+════════════════════════════════════════════════ */
+const resizeObs = new ResizeObserver(() => {
+  drawNetwork();
+  drawAllHeatmaps();
+});
+resizeObs.observe(document.getElementById('networkCanvas'));
+
+/* ════════════════════════════════════════════════
+   СТАРТ
+════════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+  initNetwork();
+  log('✅ Нейронная сеть инициализирована', 'ok');
+});
+</script>
+</body>
+</html>
