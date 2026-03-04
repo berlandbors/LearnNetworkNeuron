@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06. Прогнозирование с реальными числами</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .control-group {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .control-group h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .visualization {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .chart-container h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        canvas {
+            width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background: white;
+        }
+        
+        .results-table {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+        
+        tr:nth-child(even) {
+            background: #f2f2f2;
+        }
+        
+        .error-low {
+            background: #d4edda !important;
+            color: #155724;
+        }
+        
+        .error-medium {
+            background: #fff3cd !important;
+            color: #856404;
+        }
+        
+        .error-high {
+            background: #f8d7da !important;
+            color: #721c24;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        
+        @media (max-width: 768px) {
+            .visualization {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Прогнозирование с реальными числами</h1>
+        <p class="subtitle">Обучите нейронную сеть предсказывать цены на основе характеристик</p>
+        
+        <div class="info-box">
+            <strong>Пример:</strong> Прогнозирование цены квартиры на основе площади, количества комнат и этажа.
+            Сеть обучается на исторических данных и затем делает предсказания для новых квартир.
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <h3>⚙️ Параметры обучения</h3>
+                <label>Скорость обучения:</label>
+                <input type="number" id="learningRate" value="0.01" step="0.001" min="0.001" max="0.1">
+                
+                <label>Эпохи обучения:</label>
+                <input type="number" id="epochs" value="1000" step="100" min="100" max="5000">
+                
+                <label>Размер датасета:</label>
+                <input type="number" id="datasetSize" value="50" step="10" min="20" max="100">
+                
+                <button id="trainBtn">🚀 Начать обучение</button>
+                <button id="generateBtn">📊 Генерировать новые данные</button>
+            </div>
+            
+            <div class="control-group">
+                <h3>🔮 Сделать прогноз</h3>
+                <label>Площадь (м²):</label>
+                <input type="number" id="inputArea" value="75" min="30" max="150">
+                
+                <label>Количество комнат:</label>
+                <input type="number" id="inputRooms" value="2" min="1" max="5">
+                
+                <label>Этаж:</label>
+                <input type="number" id="inputFloor" value="5" min="1" max="20">
+                
+                <button id="predictBtn" disabled>🎯 Предсказать цену</button>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="statEpoch">0</div>
+                <div class="stat-label">Эпоха</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statLoss">0.00</div>
+                <div class="stat-label">Ошибка (Loss)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statMAE">0.00</div>
+                <div class="stat-label">Средняя ошибка (тыс. $)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statAccuracy">0%</div>
+                <div class="stat-label">Точность (±10%)</div>
+            </div>
+        </div>
+        
+        <div class="visualization">
+            <div class="chart-container">
+                <h3>📉 График обучения</h3>
+                <canvas id="lossChart" width="400" height="300"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>📊 Истина vs Прогноз</h3>
+                <canvas id="comparisonChart" width="400" height="300"></canvas>
+            </div>
+        </div>
+        
+        <div class="results-table">
+            <h3>📋 Результаты прогнозов (тестовая выборка)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>№</th>
+                        <th>Площадь (м²)</th>
+                        <th>Комнаты</th>
+                        <th>Этаж</th>
+                        <th>Истинная цена ($)</th>
+                        <th>Прогноз ($)</th>
+                        <th>Ошибка (%)</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <tr>
+                        <td colspan="7">Начните обучение для получения результатов</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Нейронная сеть
+        class NeuralNetwork {
+            constructor() {
+                // Архитектура: 3 входа -> 8 скрытых -> 4 скрытых -> 1 выход
+                this.weights1 = this.randomMatrix(3, 8);
+                this.bias1 = this.randomMatrix(1, 8);
+                this.weights2 = this.randomMatrix(8, 4);
+                this.bias2 = this.randomMatrix(1, 4);
+                this.weights3 = this.randomMatrix(4, 1);
+                this.bias3 = this.randomMatrix(1, 1);
+            }
+            
+            randomMatrix(rows, cols) {
+                const matrix = [];
+                for (let i = 0; i < rows; i++) {
+                    matrix[i] = [];
+                    for (let j = 0; j < cols; j++) {
+                        matrix[i][j] = (Math.random() - 0.5) * 0.5;
+                    }
+                }
+                return matrix;
+            }
+            
+            relu(x) {
+                return Math.max(0, x);
+            }
+            
+            reluDerivative(x) {
+                return x > 0 ? 1 : 0;
+            }
+            
+            predict(inputs) {
+                // Нормализация входных данных
+                const normalized = [
+                    inputs[0] / 100,  // площадь
+                    inputs[1] / 5,    // комнаты
+                    inputs[2] / 20    // этаж
+                ];
+                
+                // Слой 1
+                this.layer1 = [];
+                for (let i = 0; i < 8; i++) {
+                    let sum = this.bias1[0][i];
+                    for (let j = 0; j < 3; j++) {
+                        sum += normalized[j] * this.weights1[j][i];
+                    }
+                    this.layer1[i] = this.relu(sum);
+                }
+                
+                // Слой 2
+                this.layer2 = [];
+                for (let i = 0; i < 4; i++) {
+                    let sum = this.bias2[0][i];
+                    for (let j = 0; j < 8; j++) {
+                        sum += this.layer1[j] * this.weights2[j][i];
+                    }
+                    this.layer2[i] = this.relu(sum);
+                }
+                
+                // Выходной слой
+                let output = this.bias3[0][0];
+                for (let i = 0; i < 4; i++) {
+                    output += this.layer2[i] * this.weights3[i][0];
+                }
+                
+                return output * 100; // Денормализация
+            }
+            
+            train(inputs, target, learningRate) {
+                // Прямой проход
+                const prediction = this.predict(inputs);
+                const normalized = [
+                    inputs[0] / 100,
+                    inputs[1] / 5,
+                    inputs[2] / 20
+                ];
+                
+                // Обратное распространение
+                const outputError = (prediction - target) / 100;
+                
+                // Градиенты для выходного слоя
+                const deltaOutput = outputError;
+                
+                // Градиенты для слоя 2
+                const delta2 = [];
+                for (let i = 0; i < 4; i++) {
+                    delta2[i] = deltaOutput * this.weights3[i][0] * this.reluDerivative(this.layer2[i]);
+                }
+                
+                // Градиенты для слоя 1
+                const delta1 = [];
+                for (let i = 0; i < 8; i++) {
+                    let sum = 0;
+                    for (let j = 0; j < 4; j++) {
+                        sum += delta2[j] * this.weights2[i][j];
+                    }
+                    delta1[i] = sum * this.reluDerivative(this.layer1[i]);
+                }
+                
+                // Обновление весов
+                for (let i = 0; i < 4; i++) {
+                    this.weights3[i][0] -= learningRate * deltaOutput * this.layer2[i];
+                }
+                this.bias3[0][0] -= learningRate * deltaOutput;
+                
+                for (let i = 0; i < 8; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        this.weights2[i][j] -= learningRate * delta2[j] * this.layer1[i];
+                    }
+                }
+                for (let i = 0; i < 4; i++) {
+                    this.bias2[0][i] -= learningRate * delta2[i];
+                }
+                
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 8; j++) {
+                        this.weights1[i][j] -= learningRate * delta1[j] * normalized[i];
+                    }
+                }
+                for (let i = 0; i < 8; i++) {
+                    this.bias1[0][i] -= learningRate * delta1[i];
+                }
+            }
+        }
+
+        // Генерация данных
+        function generateData(size) {
+            const data = [];
+            for (let i = 0; i < size; i++) {
+                const area = 30 + Math.random() * 120;
+                const rooms = Math.floor(1 + Math.random() * 5);
+                const floor = Math.floor(1 + Math.random() * 20);
+                
+                // Формула цены с шумом
+                const basePrice = area * 1.5 + rooms * 15 + floor * 2;
+                const noise = (Math.random() - 0.5) * 20;
+                const price = basePrice + noise;
+                
+                data.push({
+                    inputs: [area, rooms, floor],
+                    target: price
+                });
+            }
+            return data;
+        }
+
+        // Глобальные переменные
+        let nn = new NeuralNetwork();
+        let trainingData = [];
+        let testData = [];
+        let lossHistory = [];
+        let isTrained = false;
+
+        // Элементы DOM
+        const trainBtn = document.getElementById('trainBtn');
+        const generateBtn = document.getElementById('generateBtn');
+        const predictBtn = document.getElementById('predictBtn');
+        const lossCanvas = document.getElementById('lossChart');
+        const comparisonCanvas = document.getElementById('comparisonChart');
+        const lossCtx = lossCanvas.getContext('2d');
+        const comparisonCtx = comparisonCanvas.getContext('2d');
+
+        // Генерация начальных данных
+        generateBtn.addEventListener('click', () => {
+            const size = parseInt(document.getElementById('datasetSize').value);
+            const allData = generateData(size);
+            const splitIndex = Math.floor(size * 0.8);
+            trainingData = allData.slice(0, splitIndex);
+            testData = allData.slice(splitIndex);
+            
+            alert(`Сгенерировано ${trainingData.length} обучающих и ${testData.length} тестовых примеров`);
+            isTrained = false;
+            predictBtn.disabled = true;
+        });
+
+        // Обучение
+        trainBtn.addEventListener('click', async () => {
+            if (trainingData.length === 0) {
+                alert('Сначала сгенерируйте данные!');
+                return;
+            }
+            
+            trainBtn.disabled = true;
+            generateBtn.disabled = true;
+            lossHistory = [];
+            nn = new NeuralNetwork();
+            
+            const learningRate = parseFloat(document.getElementById('learningRate').value);
+            const epochs = parseInt(document.getElementById('epochs').value);
+            
+            for (let epoch = 0; epoch < epochs; epoch++) {
+                let totalLoss = 0;
+                
+                // Перемешивание данных
+                const shuffled = [...trainingData].sort(() => Math.random() - 0.5);
+                
+                for (const example of shuffled) {
+                    const prediction = nn.predict(example.inputs);
+                    const error = prediction - example.target;
+                    totalLoss += error * error;
+                    nn.train(example.inputs, example.target, learningRate);
+                }
+                
+                const avgLoss = totalLoss / trainingData.length;
+                lossHistory.push(avgLoss);
+                
+                if (epoch % 50 === 0 || epoch === epochs - 1) {
+                    document.getElementById('statEpoch').textContent = epoch + 1;
+                    document.getElementById('statLoss').textContent = Math.sqrt(avgLoss).toFixed(2);
+                    drawLossChart();
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+            }
+            
+            // Тестирование
+            evaluateModel();
+            drawComparisonChart();
+            updateResultsTable();
+            
+            trainBtn.disabled = false;
+            generateBtn.disabled = false;
+            predictBtn.disabled = false;
+            isTrained = true;
+        });
+
+        // Прогнозирование
+        predictBtn.addEventListener('click', () => {
+            const area = parseFloat(document.getElementById('inputArea').value);
+            const rooms = parseFloat(document.getElementById('inputRooms').value);
+            const floor = parseFloat(document.getElementById('inputFloor').value);
+            
+            const prediction = nn.predict([area, rooms, floor]);
+            
+            alert(`🎯 Прогноз цены:\n\nХарактеристики:\n• Площадь: ${area} м²\n• Комнат: ${rooms}\n• Этаж: ${floor}\n\nПрогнозируемая цена: $${prediction.toFixed(2)} тыс.`);
+        });
+
+        // Оценка модели
+        function evaluateModel() {
+            let totalError = 0;
+            let correctPredictions = 0;
+            
+            for (const example of testData) {
+                const prediction = nn.predict(example.inputs);
+                const error = Math.abs(prediction - example.target);
+                totalError += error;
+                
+                const percentError = (error / example.target) * 100;
+                if (percentError <= 10) correctPredictions++;
+            }
+            
+            const mae = totalError / testData.length;
+            const accuracy = (correctPredictions / testData.length) * 100;
+            
+            document.getElementById('statMAE').textContent = mae.toFixed(2);
+            document.getElementById('statAccuracy').textContent = accuracy.toFixed(0) + '%';
+        }
+
+        // Рисование графика обучения
+        function drawLossChart() {
+            const width = lossCanvas.width;
+            const height = lossCanvas.height;
+            const padding = 40;
+            
+            lossCtx.clearRect(0, 0, width, height);
+            
+            if (lossHistory.length < 2) return;
+            
+            const maxLoss = Math.max(...lossHistory);
+            const minLoss = Math.min(...lossHistory);
+            const range = maxLoss - minLoss || 1;
+            
+            // Оси
+            lossCtx.strokeStyle = '#333';
+            lossCtx.lineWidth = 2;
+            lossCtx.beginPath();
+            lossCtx.moveTo(padding, padding);
+            lossCtx.lineTo(padding, height - padding);
+            lossCtx.lineTo(width - padding, height - padding);
+            lossCtx.stroke();
+            
+            // Линия потерь
+            lossCtx.strokeStyle = '#667eea';
+            lossCtx.lineWidth = 3;
+            lossCtx.beginPath();
+            
+            const xStep = (width - 2 * padding) / (lossHistory.length - 1);
+            
+            for (let i = 0; i < lossHistory.length; i++) {
+                const x = padding + i * xStep;
+                const y = height - padding - ((lossHistory[i] - minLoss) / range) * (height - 2 * padding);
+                
+                if (i === 0) {
+                    lossCtx.moveTo(x, y);
+                } else {
+                    lossCtx.lineTo(x, y);
+                }
+            }
+            
+            lossCtx.stroke();
+            
+            // Подписи
+            lossCtx.fillStyle = '#333';
+            lossCtx.font = '12px Arial';
+            lossCtx.fillText('Loss', 5, 20);
+            lossCtx.fillText('Эпохи', width - 50, height - 10);
+        }
+
+        // Рисование графика сравнения
+        function drawComparisonChart() {
+            const width = comparisonCanvas.width;
+            const height = comparisonCanvas.height;
+            const padding = 40;
+            
+            comparisonCtx.clearRect(0, 0, width, height);
+            
+            if (testData.length === 0) return;
+            
+            const allPrices = testData.flatMap(d => [
+                d.target,
+                nn.predict(d.inputs)
+            ]);
+            const minPrice = Math.min(...allPrices);
+            const maxPrice = Math.max(...allPrices);
+            const range = maxPrice - minPrice || 1;
+            
+            // Оси
+            comparisonCtx.strokeStyle = '#333';
+            comparisonCtx.lineWidth = 2;
+            comparisonCtx.beginPath();
+            comparisonCtx.moveTo(padding, padding);
+            comparisonCtx.lineTo(padding, height - padding);
+            comparisonCtx.lineTo(width - padding, height - padding);
+            comparisonCtx.stroke();
+            
+            // Идеальная линия
+            comparisonCtx.strokeStyle = '#ddd';
+            comparisonCtx.lineWidth = 2;
+            comparisonCtx.setLineDash([5, 5]);
+            comparisonCtx.beginPath();
+            comparisonCtx.moveTo(padding, height - padding);
+            comparisonCtx.lineTo(width - padding, padding);
+            comparisonCtx.stroke();
+            comparisonCtx.setLineDash([]);
+            
+            // Точки
+            testData.forEach(example => {
+                const truePrice = example.target;
+                const predPrice = nn.predict(example.inputs);
+                
+                const x = padding + ((truePrice - minPrice) / range) * (width - 2 * padding);
+                const y = height - padding - ((predPrice - minPrice) / range) * (height - 2 * padding);
+                
+                const error = Math.abs(predPrice - truePrice);
+                const percentError = (error / truePrice) * 100;
+                
+                if (percentError <= 5) {
+                    comparisonCtx.fillStyle = '#28a745';
+                } else if (percentError <= 15) {
+                    comparisonCtx.fillStyle = '#ffc107';
+                } else {
+                    comparisonCtx.fillStyle = '#dc3545';
+                }
+                
+                comparisonCtx.beginPath();
+                comparisonCtx.arc(x, y, 5, 0, Math.PI * 2);
+                comparisonCtx.fill();
+            });
+            
+            // Подписи
+            comparisonCtx.fillStyle = '#333';
+            comparisonCtx.font = '12px Arial';
+            comparisonCtx.fillText('Прогноз', 5, 20);
+            comparisonCtx.fillText('Истина', width - 50, height - 10);
+        }
+
+        // Обновление таблицы результатов
+        function updateResultsTable() {
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+            
+            testData.forEach((example, index) => {
+                const prediction = nn.predict(example.inputs);
+                const error = Math.abs(prediction - example.target);
+                const percentError = (error / example.target) * 100;
+                
+                const row = document.createElement('tr');
+                
+                let errorClass = '';
+                if (percentError <= 5) errorClass = 'error-low';
+                else if (percentError <= 15) errorClass = 'error-medium';
+                else errorClass = 'error-high';
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${example.inputs[0].toFixed(1)}</td>
+                    <td>${example.inputs[1]}</td>
+                    <td>${example.inputs[2]}</td>
+                    <td>${example.target.toFixed(2)}</td>
+                    <td>${prediction.toFixed(2)}</td>
+                    <td class="${errorClass}">${percentError.toFixed(1)}%</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // Инициализация
+        window.addEventListener('load', () => {
+            const size = parseInt(document.getElementById('datasetSize').value);
+            const allData = generateData(size);
+            const splitIndex = Math.floor(size * 0.8);
+            trainingData = allData.slice(0, splitIndex);
+            testData = allData.slice(splitIndex);
+        });
+    </script>
+</body>
+</html>
