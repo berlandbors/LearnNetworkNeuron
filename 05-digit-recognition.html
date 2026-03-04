@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Распознавание рукописных цифр — Нейронная сеть</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --accent: #6c63ff;
+    --accent2: #48cfad;
+    --accent3: #fc5c7d;
+    --text: #e2e8f0;
+    --text2: #8892b0;
+    --digit-colors: #6c63ff, #48cfad, #fc5c7d, #f7b731, #45aaf2, #a55eea, #fd9644, #26de81, #eb3b5a, #2bcbba;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p {
+    color: var(--text2);
+    margin-top: 6px;
+    font-size: .95rem;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    max-width: 1300px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .panel h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel h2 .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  /* ── Drawing canvas ── */
+  .canvas-wrap {
+    position: relative;
+    width: 280px; height: 280px;
+    margin: 0 auto 14px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 2px solid var(--border);
+    cursor: crosshair;
+    background: #000;
+  }
+  #drawCanvas {
+    display: block;
+    width: 100%; height: 100%;
+    touch-action: none;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  button {
+    border: none;
+    border-radius: 8px;
+    padding: 9px 18px;
+    font-size: .88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+  }
+  button:active { transform: scale(.96); }
+  button:disabled { opacity: .4; cursor: default; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-success {
+    background: var(--accent2);
+    color: #000;
+  }
+  .btn-danger {
+    background: var(--accent3);
+    color: #fff;
+  }
+
+  /* ── Preview 28×28 ── */
+  #preview28 {
+    display: block;
+    margin: 0 auto;
+    width: 112px; height: 112px;
+    image-rendering: pixelated;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #000;
+  }
+  .preview-label {
+    text-align: center;
+    color: var(--text2);
+    font-size: .78rem;
+    margin-top: 6px;
+  }
+
+  /* ── Results ── */
+  .result-big {
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .result-big .digit {
+    font-size: 5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+  }
+  .result-big .conf-text {
+    color: var(--text2);
+    font-size: .85rem;
+    margin-top: 4px;
+  }
+
+  .bar-chart { display: flex; flex-direction: column; gap: 6px; }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .82rem;
+  }
+  .bar-label {
+    width: 18px;
+    text-align: right;
+    font-weight: 700;
+    color: var(--text2);
+  }
+  .bar-track {
+    flex: 1;
+    height: 14px;
+    background: var(--surface2);
+    border-radius: 7px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 7px;
+    transition: width .4s cubic-bezier(.4,0,.2,1);
+  }
+  .bar-val {
+    width: 42px;
+    text-align: right;
+    color: var(--text2);
+    font-size: .78rem;
+  }
+  .bar-row.winner .bar-label { color: var(--text); }
+  .bar-row.winner .bar-val   { color: var(--text); font-weight: 700; }
+
+  .top3 {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    justify-content: center;
+  }
+  .top3-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    text-align: center;
+    min-width: 70px;
+  }
+  .top3-item .t3d { font-size: 1.8rem; font-weight: 700; }
+  .top3-item .t3p { font-size: .75rem; color: var(--text2); margin-top: 2px; }
+  .top3-item.first { border-color: var(--accent); }
+
+  /* ── Training panel ── */
+  .label-selector {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .lbtn {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    background: var(--surface2);
+    color: var(--text2);
+    border: 2px solid var(--border);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .lbtn:hover { border-color: var(--accent); color: var(--text); }
+  .lbtn.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .sample-counts {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .sc-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: .75rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sc-num { font-weight: 700; color: var(--accent); }
+
+  /* ── Progress ── */
+  .progress-wrap {
+    background: var(--surface2);
+    border-radius: 8px;
+    height: 10px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    transition: width .2s;
+    width: 0%;
+  }
+  .train-info {
+    font-size: .82rem;
+    color: var(--text2);
+    min-height: 18px;
+    margin-top: 4px;
+  }
+
+  /* ── Network visualization ── */
+  #netCanvas {
+    display: block;
+    width: 100%;
+    border-radius: 8px;
+    background: #000c1a;
+  }
+
+  /* ── Activation grids ── */
+  .act-section { margin-top: 16px; }
+  .act-section h3 {
+    font-size: .8rem;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 8px;
+  }
+  .act-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  canvas.act-canvas {
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    image-rendering: pixelated;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 3px;
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px 10px;
+    font-size: .83rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all .18s;
+    user-select: none;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  .right-col > .panel { margin-bottom: 20px; }
+  .right-col > .panel:last-child { margin-bottom: 0; }
+
+  .hint {
+    font-size: .78rem;
+    color: var(--text2);
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  /* Separator */
+  hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+  .badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 20px;
+    padding: 1px 8px;
+    font-size: .72rem;
+    font-weight: 700;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  #statusMsg {
+    text-align: center;
+    font-size: .82rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-top: 10px;
+    min-height: 36px;
+  }
+  .status-ok   { background: rgba(72,207,173,.15); color: var(--accent2); }
+  .status-info { background: rgba(108,99,255,.15);  color: var(--accent); }
+  .status-warn { background: rgba(252,92,125,.15);  color: var(--accent3); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>✍️ Распознавание рукописных цифр</h1>
+  <p>Нейронная сеть 784 → 128 → 64 → 10 &nbsp;|&nbsp; Рисуйте цифры и обучайте сеть</p>
+</header>
+
+<div class="layout">
+  <!-- ═══ LEFT COLUMN ═══ -->
+  <div class="left-col">
+
+    <!-- Drawing -->
+    <div class="panel">
+      <h2><span class="dot"></span>Нарисуйте цифру</h2>
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="drawCanvas" width="280" height="280"></canvas>
+      </div>
+      <p class="hint">Рисуйте мышью или пальцем</p>
+      <div class="btn-row">
+        <button class="btn-secondary" id="btnClear">🗑 Очистить</button>
+        <button class="btn-primary"   id="btnRecognize">🔍 Распознать</button>
+      </div>
+
+      <hr>
+
+      <!-- 28×28 preview -->
+      <canvas id="preview28" width="28" height="28"></canvas>
+      <p class="preview-label">Предобработка: 28×28 пикселей</p>
+    </div>
+
+    <!-- Training controls -->
+    <div class="panel" style="margin-top:20px">
+      <h2><span class="dot" style="background:var(--accent2)"></span>Обучение</h2>
+
+      <p style="font-size:.82rem;color:var(--text2);margin-bottom:10px">
+        Нарисуйте цифру, выберите метку и добавьте в выборку:
+      </p>
+
+      <div class="label-selector" id="labelSelector"></div>
+
+      <div class="btn-row" style="margin-bottom:14px">
+        <button class="btn-success" id="btnAddSample">➕ Добавить</button>
+      </div>
+
+      <div class="sample-counts" id="sampleCounts"></div>
+
+      <div class="btn-row" style="margin-bottom:10px">
+        <button class="btn-primary" id="btnTrain">⚡ Обучить сеть</button>
+        <button class="btn-danger"  id="btnResetWeights">↺ Сброс весов</button>
+      </div>
+
+      <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="train-info" id="trainInfo">Добавьте примеры и нажмите «Обучить сеть»</div>
+
+      <div id="statusMsg" class="status-info">Сеть инициализирована случайными весами</div>
+    </div>
+
+  </div><!-- /left-col -->
+
+  <!-- ═══ RIGHT COLUMN ═══ -->
+  <div class="right-col">
+
+    <!-- Results -->
+    <div class="panel">
+      <h2><span class="dot" style="background:var(--accent3)"></span>Результат распознавания</h2>
+
+      <div class="result-big">
+        <div class="digit" id="resultDigit">—</div>
+        <div class="conf-text" id="resultConf">Нажмите «Распознать»</div>
+      </div>
+
+      <div class="bar-chart" id="barChart"></div>
+
+      <div class="top3" id="top3"></div>
+    </div>
+
+    <!-- Tabs: Visualization / Architecture -->
+    <div class="panel">
+      <h2><span class="dot" style="background:#f7b731"></span>Визуализация сети</h2>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="activations">Активации</div>
+        <div class="tab"        data-tab="architecture">Архитектура</div>
+      </div>
+
+      <div class="tab-pane active" id="tab-activations">
+        <div class="act-section">
+          <h3>Входной слой (28×28)</h3>
+          <canvas class="act-canvas" id="actInput" width="28" height="28" style="width:112px;height:112px"></canvas>
+        </div>
+        <div class="act-section">
+          <h3>Скрытый слой 1 (128 нейронов) — 16×8</h3>
+          <canvas class="act-canvas" id="actH1" width="16" height="8" style="width:160px;height:80px"></canvas>
+        </div>
+        <div class="act-section">
+          <h3>Скрытый слой 2 (64 нейрона) — 8×8</h3>
+          <canvas class="act-canvas" id="actH2" width="8" height="8" style="width:80px;height:80px"></canvas>
+        </div>
+        <div class="act-section">
+          <h3>Выходной слой (10 нейронов)</h3>
+          <canvas class="act-canvas" id="actOut" width="10" height="1" style="width:200px;height:20px"></canvas>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-architecture">
+        <canvas id="netCanvas" width="700" height="320"></canvas>
+      </div>
+    </div>
+
+  </div><!-- /right-col -->
+</div><!-- /layout -->
+
+<script>
+/* ════════════════════════════════════════════
+   НЕЙРОННАЯ СЕТЬ
+   ════════════════════════════════════════════ */
+
+// Активации
+function relu(x)    { return Math.max(0, x); }
+function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+function sigmoidD(x){ return x * (1 - x); }
+function reluD(a)   { return a > 0 ? 1 : 0; }
+
+// Инициализация He для ReLU, Xavier для sigmoid
+function heInit(fanIn) { return (Math.random() * 2 - 1) * Math.sqrt(2 / fanIn); }
+function xavierInit(fanIn) { return (Math.random() * 2 - 1) * Math.sqrt(1 / fanIn); }
+
+function createMatrix(rows, cols, init) {
+  return Array.from({length: rows}, () => Array.from({length: cols}, init));
+}
+function createVec(n, v=0) { return new Array(n).fill(v); }
+
+// Архитектура: 784 → 128 → 64 → 10
+const ARCH = [784, 128, 64, 10];
+
+let net = null;
+
+function initNetwork() {
+  net = {
+    W: [], b: [],
+    // Кэш для обратного прохода
+    z: [], a: []
+  };
+  // Слои 0→1 (ReLU), 1→2 (ReLU), 2→3 (Sigmoid)
+  for (let l = 0; l < ARCH.length - 1; l++) {
+    const fanIn = ARCH[l];
+    const fanOut = ARCH[l+1];
+    const init = (l < ARCH.length - 2) ? () => heInit(fanIn) : () => xavierInit(fanIn);
+    net.W.push(createMatrix(fanOut, fanIn, init));
+    net.b.push(createVec(fanOut, 0));
+  }
+}
+
+// Прямой проход; возвращает активации всех слоёв
+function forward(input) {
+  let a = input.slice();
+  const activations = [a];
+  const zs = [];
+  for (let l = 0; l < net.W.length; l++) {
+    const W = net.W[l], b = net.b[l];
+    const z = W.map((row, i) => {
+      let s = b[i];
+      for (let j = 0; j < row.length; j++) s += row[j] * a[j];
+      return s;
+    });
+    zs.push(z);
+    if (l < net.W.length - 1) {
+      a = z.map(relu);
+    } else {
+      // Softmax для выходного слоя
+      const maxZ = Math.max(...z);
+      const exps = z.map(v => Math.exp(v - maxZ));
+      const sum  = exps.reduce((s,v) => s+v, 0);
+      a = exps.map(v => v / sum);
+    }
+    activations.push(a);
+  }
+  net.z = zs;
+  net.a = activations;
+  return activations;
+}
+
+// Обратное распространение (softmax + cross-entropy)
+function backward(input, target, lr) {
+  const acts = forward(input);
+  const L = net.W.length;
+
+  // Градиент выхода (softmax + cross-entropy)
+  let delta = acts[L].map((o, i) => o - target[i]);
+
+  for (let l = L - 1; l >= 0; l--) {
+    const aL = acts[l]; // активации предыдущего слоя
+    const W  = net.W[l];
+    const b  = net.b[l];
+
+    // Градиент для предыдущего слоя
+    const prevDelta = createVec(ARCH[l], 0);
+    if (l > 0) {
+      for (let j = 0; j < ARCH[l]; j++) {
+        let s = 0;
+        for (let i = 0; i < ARCH[l+1]; i++) s += W[i][j] * delta[i];
+        prevDelta[j] = s * reluD(acts[l][j]);
+      }
+    }
+
+    // Обновление весов
+    for (let i = 0; i < ARCH[l+1]; i++) {
+      for (let j = 0; j < ARCH[l]; j++) {
+        W[i][j] -= lr * delta[i] * aL[j];
+      }
+      b[i] -= lr * delta[i];
+    }
+
+    delta = prevDelta;
+  }
+}
+
+function oneHot(label, n=10) {
+  const v = createVec(n, 0);
+  v[label] = 1;
+  return v;
+}
+
+// Вычислить cross-entropy loss
+function crossEntropyLoss(probs, label) {
+  return -Math.log(Math.max(probs[label], 1e-10));
+}
+
+/* ════════════════════════════════════════════
+   ДАННЫЕ ДЛЯ ОБУЧЕНИЯ
+   ════════════════════════════════════════════ */
+const trainingSamples = []; // { pixels: Float32Array(784), label: 0..9 }
+const sampleCounts = new Array(10).fill(0);
+
+/* ════════════════════════════════════════════
+   РИСОВАНИЕ
+   ════════════════════════════════════════════ */
+const drawCanvas = document.getElementById('drawCanvas');
+const ctx = drawCanvas.getContext('2d');
+
+let painting = false;
+let lastX = 0, lastY = 0;
+
+function getPos(e) {
+  const r = drawCanvas.getBoundingClientRect();
+  const scaleX = drawCanvas.width  / r.width;
+  const scaleY = drawCanvas.height / r.height;
+  let cx, cy;
+  if (e.touches) {
+    cx = (e.touches[0].clientX - r.left) * scaleX;
+    cy = (e.touches[0].clientY - r.top)  * scaleY;
+  } else {
+    cx = (e.clientX - r.left) * scaleX;
+    cy = (e.clientY - r.top)  * scaleY;
+  }
+  return [cx, cy];
+}
+
+function startDraw(e) {
+  e.preventDefault();
+  painting = true;
+  [lastX, lastY] = getPos(e);
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 12, 0, Math.PI*2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+}
+
+function draw(e) {
+  if (!painting) return;
+  e.preventDefault();
+  const [x, y] = getPos(e);
+  ctx.lineWidth = 24;
+  ctx.lineCap  = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#fff';
+  ctx.shadowBlur  = 10;
+  ctx.shadowColor = 'rgba(255,255,255,.4)';
+  ctx.beginPath();
+  ctx.moveTo(lastX, lastY);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  [lastX, lastY] = [x, y];
+  updatePreview();
+}
+
+function endDraw() { painting = false; }
+
+drawCanvas.addEventListener('mousedown',  startDraw);
+drawCanvas.addEventListener('mousemove',  draw);
+drawCanvas.addEventListener('mouseup',    endDraw);
+drawCanvas.addEventListener('mouseleave', endDraw);
+drawCanvas.addEventListener('touchstart', startDraw, {passive:false});
+drawCanvas.addEventListener('touchmove',  draw,      {passive:false});
+drawCanvas.addEventListener('touchend',   endDraw);
+
+function clearCanvas() {
+  ctx.clearRect(0, 0, 280, 280);
+  updatePreview();
+  resetResultUI();
+}
+
+document.getElementById('btnClear').addEventListener('click', clearCanvas);
+
+/* ════════════════════════════════════════════
+   ПРЕДОБРАБОТКА: 280×280 → 28×28
+   ════════════════════════════════════════════ */
+const preview28 = document.getElementById('preview28');
+const pCtx = preview28.getContext('2d');
+
+function getPixels28() {
+  // Нарисовать 280×280 в offscreen 28×28
+  const off = document.createElement('canvas');
+  off.width = off.height = 28;
+  const oc = off.getContext('2d');
+  oc.drawImage(drawCanvas, 0, 0, 28, 28);
+  const id = oc.getImageData(0, 0, 28, 28);
+  const data = id.data;
+  const pixels = new Float32Array(784);
+  for (let i = 0; i < 784; i++) {
+    pixels[i] = data[i * 4] / 255; // R канал (изображение чёрно-белое)
+  }
+  return pixels;
+}
+
+function updatePreview() {
+  const off = document.createElement('canvas');
+  off.width = off.height = 28;
+  const oc = off.getContext('2d');
+  oc.drawImage(drawCanvas, 0, 0, 28, 28);
+  pCtx.drawImage(off, 0, 0);
+}
+
+/* ════════════════════════════════════════════
+   РАСПОЗНАВАНИЕ
+   ════════════════════════════════════════════ */
+const DIGIT_COLORS = [
+  '#6c63ff','#48cfad','#fc5c7d','#f7b731','#45aaf2',
+  '#a55eea','#fd9644','#26de81','#eb3b5a','#2bcbba'
+];
+
+function buildBarChart() {
+  const bc = document.getElementById('barChart');
+  bc.innerHTML = '';
+  for (let d = 0; d < 10; d++) {
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.id = `bar-row-${d}`;
+    row.innerHTML = `
+      <span class="bar-label">${d}</span>
+      <div class="bar-track">
+        <div class="bar-fill" id="bar-fill-${d}" style="width:0%;background:${DIGIT_COLORS[d]}"></div>
+      </div>
+      <span class="bar-val" id="bar-val-${d}">0%</span>`;
+    bc.appendChild(row);
+  }
+}
+
+function updateResultUI(probs) {
+  // Найти победителя и топ-3
+  const indexed = probs.map((p,i) => ({p,i})).sort((a,b) => b.p - a.p);
+  const winner  = indexed[0];
+
+  document.getElementById('resultDigit').textContent = winner.i;
+  document.getElementById('resultConf').textContent =
+    `Уверенность: ${(winner.p * 100).toFixed(1)}%`;
+
+  // Полосы
+  for (let d = 0; d < 10; d++) {
+    const pct = (probs[d] * 100).toFixed(1);
+    document.getElementById(`bar-fill-${d}`).style.width = pct + '%';
+    document.getElementById(`bar-val-${d}`).textContent  = pct + '%';
+    const row = document.getElementById(`bar-row-${d}`);
+    row.classList.toggle('winner', d === winner.i);
+  }
+
+  // Топ-3
+  const t3 = document.getElementById('top3');
+  t3.innerHTML = '';
+  for (let k = 0; k < 3; k++) {
+    const it = indexed[k];
+    const el = document.createElement('div');
+    el.className = 'top3-item' + (k === 0 ? ' first' : '');
+    el.innerHTML = `
+      <div class="t3d" style="color:${DIGIT_COLORS[it.i]}">${it.i}</div>
+      <div class="t3p">${(it.p*100).toFixed(1)}%</div>`;
+    t3.appendChild(el);
+  }
+}
+
+function resetResultUI() {
+  document.getElementById('resultDigit').textContent = '—';
+  document.getElementById('resultConf').textContent  = 'Нажмите «Распознать»';
+  for (let d = 0; d < 10; d++) {
+    document.getElementById(`bar-fill-${d}`).style.width = '0%';
+    document.getElementById(`bar-val-${d}`).textContent  = '0%';
+    document.getElementById(`bar-row-${d}`).classList.remove('winner');
+  }
+  document.getElementById('top3').innerHTML = '';
+}
+
+document.getElementById('btnRecognize').addEventListener('click', () => {
+  const px = getPixels28();
+  const acts = forward(Array.from(px));
+  const probs = acts[acts.length - 1];
+  updateResultUI(probs);
+  updateActivationViz(px, acts);
+});
+
+/* ════════════════════════════════════════════
+   ВИЗУАЛИЗАЦИЯ АКТИВАЦИЙ
+   ════════════════════════════════════════════ */
+function drawActGrid(canvasId, values, w, h) {
+  const c = document.getElementById(canvasId);
+  const cx = c.getContext('2d');
+  const img = cx.createImageData(w, h);
+  const max = Math.max(...values, 1e-6);
+  for (let i = 0; i < values.length && i < w*h; i++) {
+    const v = Math.round((values[i] / max) * 255);
+    img.data[i*4]   = v;
+    img.data[i*4+1] = Math.round(v * 0.6);
+    img.data[i*4+2] = 255;
+    img.data[i*4+3] = 255;
+  }
+  cx.putImageData(img, 0, 0);
+}
+
+function drawActInput(pixels) {
+  const c = document.getElementById('actInput');
+  const cx = c.getContext('2d');
+  const img = cx.createImageData(28, 28);
+  for (let i = 0; i < 784; i++) {
+    const v = Math.round(pixels[i] * 255);
+    img.data[i*4]   = v;
+    img.data[i*4+1] = v;
+    img.data[i*4+2] = v;
+    img.data[i*4+3] = 255;
+  }
+  cx.putImageData(img, 0, 0);
+}
+
+function updateActivationViz(pixels, acts) {
+  drawActInput(pixels);
+  drawActGrid('actH1', acts[1], 16, 8);
+  drawActGrid('actH2', acts[2], 8, 8);
+
+  // Выходной слой
+  const c = document.getElementById('actOut');
+  const cx = c.getContext('2d');
+  const img = cx.createImageData(10, 1);
+  for (let i = 0; i < 10; i++) {
+    const v = Math.round(acts[3][i] * 255);
+    img.data[i*4]   = Math.round(v * 0.4 + 108);
+    img.data[i*4+1] = Math.round(v * 0.6 + 50);
+    img.data[i*4+2] = 255;
+    img.data[i*4+3] = 255;
+  }
+  cx.putImageData(img, 0, 0);
+}
+
+/* ════════════════════════════════════════════
+   ВИЗУАЛИЗАЦИЯ АРХИТЕКТУРЫ
+   ════════════════════════════════════════════ */
+function drawArchitecture() {
+  const c = document.getElementById('netCanvas');
+  const cx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  cx.clearRect(0, 0, W, H);
+
+  const layers = [
+    { label: 'Вход\n784',    n: 8,  color: '#6c63ff' },
+    { label: 'Скрытый 1\n128', n: 8, color: '#48cfad' },
+    { label: 'Скрытый 2\n64',  n: 7, color: '#f7b731' },
+    { label: 'Выход\n10',    n: 5,  color: '#fc5c7d' },
+  ];
+  const colX = [80, 250, 430, 610];
+  const neuronR = 10;
+  const spacing = 32;
+
+  // Рисуем связи
+  cx.globalAlpha = .12;
+  cx.strokeStyle = '#8892b0';
+  cx.lineWidth = .7;
+  for (let li = 0; li < layers.length - 1; li++) {
+    const ln = layers[li], rn = layers[li+1];
+    const lh = (ln.n - 1) * spacing;
+    const rh = (rn.n - 1) * spacing;
+    for (let i = 0; i < ln.n; i++) {
+      const y1 = H/2 - lh/2 + i * spacing;
+      for (let j = 0; j < rn.n; j++) {
+        const y2 = H/2 - rh/2 + j * spacing;
+        cx.beginPath();
+        cx.moveTo(colX[li] + neuronR, y1);
+        cx.lineTo(colX[li+1] - neuronR, y2);
+        cx.stroke();
+      }
+    }
+  }
+  cx.globalAlpha = 1;
+
+  // Рисуем нейроны
+  for (let li = 0; li < layers.length; li++) {
+    const l = layers[li];
+    const lh = (l.n - 1) * spacing;
+    for (let i = 0; i < l.n; i++) {
+      const y = H/2 - lh/2 + i * spacing;
+      const x = colX[li];
+      cx.beginPath();
+      cx.arc(x, y, neuronR, 0, Math.PI*2);
+      cx.fillStyle = l.color;
+      cx.fill();
+      cx.strokeStyle = '#fff';
+      cx.lineWidth = 1.5;
+      cx.globalAlpha = .4;
+      cx.stroke();
+      cx.globalAlpha = 1;
+    }
+
+    // Многоточие между 3-м и (n-2)-м нейроном
+    if (l.n >= 5) {
+      const y = H/2;
+      cx.fillStyle = '#8892b0';
+      cx.font = '18px sans-serif';
+      cx.textAlign = 'center';
+      cx.fillText('⋮', colX[li], y + 4);
+    }
+
+    // Подпись
+    const lines = l.label.split('\n');
+    cx.fillStyle = '#8892b0';
+    cx.font = '12px sans-serif';
+    cx.textAlign = 'center';
+    lines.forEach((ln, k) => {
+      cx.fillText(ln, colX[li], H - 28 + k * 16);
+    });
+  }
+
+  // Стрелки-разделители
+  cx.strokeStyle = '#2e3350';
+  cx.lineWidth = 2;
+  cx.setLineDash([4,4]);
+  for (let li = 0; li < layers.length - 1; li++) {
+    const midX = (colX[li] + colX[li+1]) / 2;
+    cx.beginPath();
+    cx.moveTo(midX, 10);
+    cx.lineTo(midX, H - 55);
+    cx.stroke();
+  }
+  cx.setLineDash([]);
+
+  // Подписи активаций
+  const actLabels = ['', 'ReLU', 'ReLU', 'Softmax'];
+  cx.fillStyle = '#8892b0';
+  cx.font = '11px sans-serif';
+  for (let li = 1; li < layers.length; li++) {
+    const midX = (colX[li-1] + colX[li]) / 2;
+    cx.textAlign = 'center';
+    cx.fillText(actLabels[li], midX, H - 8);
+  }
+}
+
+/* ════════════════════════════════════════════
+   МЕТКИ ДЛЯ ОБУЧЕНИЯ
+   ════════════════════════════════════════════ */
+let selectedLabel = 0;
+
+const labelSelector = document.getElementById('labelSelector');
+for (let d = 0; d < 10; d++) {
+  const btn = document.createElement('button');
+  btn.className = 'lbtn' + (d === 0 ? ' selected' : '');
+  btn.textContent = d;
+  btn.dataset.d = d;
+  btn.addEventListener('click', () => {
+    selectedLabel = d;
+    document.querySelectorAll('.lbtn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+  labelSelector.appendChild(btn);
+}
+
+function updateSampleCountsUI() {
+  const sc = document.getElementById('sampleCounts');
+  sc.innerHTML = '';
+  for (let d = 0; d < 10; d++) {
+    const el = document.createElement('div');
+    el.className = 'sc-item';
+    el.innerHTML = `<span style="color:${DIGIT_COLORS[d]};font-weight:700">${d}</span>: <span class="sc-num">${sampleCounts[d]}</span>`;
+    sc.appendChild(el);
+  }
+}
+
+document.getElementById('btnAddSample').addEventListener('click', () => {
+  const pixels = getPixels28();
+  const hasPixels = pixels.some(v => v > 0.1);
+  if (!hasPixels) {
+    setStatus('Холст пустой — нарисуйте цифру', 'warn');
+    return;
+  }
+  trainingSamples.push({ pixels, label: selectedLabel });
+  sampleCounts[selectedLabel]++;
+  updateSampleCountsUI();
+  setStatus(`Добавлен пример «${selectedLabel}». Всего примеров: ${trainingSamples.length}`, 'ok');
+});
+
+/* ════════════════════════════════════════════
+   ОБУЧЕНИЕ
+   ════════════════════════════════════════════ */
+document.getElementById('btnTrain').addEventListener('click', async () => {
+  if (trainingSamples.length < 5) {
+    setStatus('Нужно хотя бы 5 примеров для обучения', 'warn');
+    return;
+  }
+
+  document.getElementById('btnTrain').disabled = true;
+  const EPOCHS = 300;
+  const LR_START = 0.05;
+  const LR_END   = 0.005;
+  const fill = document.getElementById('progressFill');
+  const info = document.getElementById('trainInfo');
+
+  let totalLoss = 0;
+  for (let ep = 0; ep < EPOCHS; ep++) {
+    const lr = LR_START + (LR_END - LR_START) * (ep / EPOCHS);
+    // Перемешать
+    const shuffled = trainingSamples.slice().sort(() => Math.random() - .5);
+    totalLoss = 0;
+    for (const s of shuffled) {
+      const acts = forward(Array.from(s.pixels));
+      totalLoss += crossEntropyLoss(acts[acts.length-1], s.label);
+      backward(Array.from(s.pixels), oneHot(s.label), lr);
+    }
+    const pct = ((ep+1) / EPOCHS * 100).toFixed(0);
+    fill.style.width = pct + '%';
+    if (ep % 30 === 0 || ep === EPOCHS - 1) {
+      const avgLoss = (totalLoss / trainingSamples.length).toFixed(4);
+      info.textContent = `Эпоха ${ep+1}/${EPOCHS} | Loss: ${avgLoss} | LR: ${lr.toFixed(4)}`;
+      // Уступить поток для обновления UI
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  document.getElementById('btnTrain').disabled = false;
+  const finalLoss = (totalLoss / trainingSamples.length).toFixed(4);
+  setStatus(`Обучение завершено! Финальный Loss: ${finalLoss}`, 'ok');
+});
+
+document.getElementById('btnResetWeights').addEventListener('click', () => {
+  initNetwork();
+  setStatus('Веса сети сброшены и переинициализированы', 'info');
+  resetResultUI();
+});
+
+/* ════════════════════════════════════════════
+   СТАТУС
+   ════════════════════════════════════════════ */
+function setStatus(msg, type='info') {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = `status-${type}`;
+}
+
+/* ════════════════════════════════════════════
+   ВКЛАДКИ
+   ════════════════════════════════════════════ */
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`tab-${target}`).classList.add('active');
+    if (target === 'architecture') drawArchitecture();
+  });
+});
+
+/* ════════════════════════════════════════════
+   ИНИЦИАЛИЗАЦИЯ
+   ════════════════════════════════════════════ */
+initNetwork();
+buildBarChart();
+updateSampleCountsUI();
+updatePreview();
+drawArchitecture();
+
+// Небольшой демонстрационный прогрев: нарисовать «0» программно
+(function drawDemoZero() {
+  ctx.lineWidth   = 22;
+  ctx.lineCap     = 'round';
+  ctx.strokeStyle = '#fff';
+  ctx.shadowBlur  = 8;
+  ctx.shadowColor = 'rgba(255,255,255,.3)';
+  ctx.beginPath();
+  ctx.ellipse(140, 140, 60, 85, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  updatePreview();
+
+  // Автоматически распознать и показать результат
+  const px = getPixels28();
+  const acts = forward(Array.from(px));
+  updateResultUI(acts[acts.length-1]);
+  updateActivationViz(px, acts);
+})();
+</script>
+</body>
+</html>

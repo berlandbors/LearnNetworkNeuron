@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Нейрон и логические вентили</title>
+  <style>
+    /* ===== Переменные темы ===== */
+    :root {
+      --bg-primary:    #0d1117;
+      --bg-secondary:  #161b22;
+      --bg-card:       #1c2230;
+      --bg-hover:      #243040;
+      --accent:        #58a6ff;
+      --accent-2:      #3fb950;
+      --accent-xor:    #f78166;
+      --accent-or:     #d2a8ff;
+      --text-primary:  #e6edf3;
+      --text-muted:    #8b949e;
+      --border:        #30363d;
+      --border-light:  #3d444d;
+      --shadow:        rgba(0,0,0,0.4);
+      --correct:       #238636;
+      --wrong:         #da3633;
+      --warn:          #d29922;
+      --radius:        10px;
+      --radius-sm:     6px;
+      --transition:    0.2s ease;
+    }
+
+    /* ===== Сброс и базовые стили ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ===== Шапка ===== */
+    header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header .icon { font-size: 2rem; }
+    header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.3px; }
+    header p  { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+    .nav-pill {
+      margin-left: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .nav-pill span { color: var(--accent); }
+
+    /* ===== Основной контейнер ===== */
+    main {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      grid-template-rows: auto auto auto;
+      gap: 20px;
+    }
+
+    /* ===== Карточки ===== */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .card-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    /* ===== Выбор вентиля ===== */
+    #gate-selector { grid-column: 1 / -1; }
+    .gate-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .gate-btn {
+      flex: 1;
+      min-width: 130px;
+      padding: 14px 20px;
+      border-radius: var(--radius);
+      border: 2px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: center;
+    }
+    .gate-btn:hover { border-color: var(--border-light); background: var(--bg-hover); }
+    .gate-btn.active-and  { border-color: var(--accent);     background: rgba(88,166,255,0.1); }
+    .gate-btn.active-or   { border-color: var(--accent-or);  background: rgba(210,168,255,0.1); }
+    .gate-btn.active-xor  { border-color: var(--accent-xor); background: rgba(247,129,102,0.1); }
+    .gate-btn .gate-name  { font-size: 1.15rem; font-weight: 700; }
+    .gate-btn .gate-desc  { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; }
+
+    /* ===== Таблица истинности ===== */
+    #truth-table-card { grid-column: 1; }
+    .truth-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .truth-table th {
+      background: var(--bg-secondary);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 8px 12px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .truth-table td {
+      padding: 10px 12px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .truth-table tr:last-child td { border-bottom: none; }
+    .truth-table tbody tr:hover td { background: var(--bg-hover); }
+    .truth-table tbody tr.selected td { background: rgba(88,166,255,0.12); }
+    .truth-table .val-1 { color: var(--accent-2); font-weight: 700; }
+    .truth-table .val-0 { color: var(--text-muted); }
+    .pred-badge {
+      display: inline-block;
+      min-width: 40px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .pred-correct { background: rgba(35,134,54,0.25); color: var(--accent-2); border: 1px solid rgba(35,134,54,0.4); }
+    .pred-wrong   { background: rgba(218,54,51,0.25); color: #ff7b72;         border: 1px solid rgba(218,54,51,0.4); }
+    .pred-neutral { background: var(--bg-secondary);  color: var(--text-muted); border: 1px solid var(--border); }
+
+    /* ===== Диаграмма нейрона + граница решения ===== */
+    #neuron-card {
+      grid-column: 2;
+      grid-row: 2 / 4;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+    }
+    .canvas-label {
+      position: absolute;
+      top: 8px; left: 12px;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      pointer-events: none;
+    }
+    canvas { display: block; width: 100%; }
+
+    /* ===== XOR предупреждение ===== */
+    #xor-warning {
+      display: none;
+      background: rgba(210,153,34,0.12);
+      border: 1px solid rgba(210,153,34,0.4);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: #e3b341;
+      line-height: 1.6;
+    }
+    #xor-warning strong { display: block; margin-bottom: 4px; font-size: 0.9rem; }
+
+    /* ===== Управление обучением ===== */
+    #controls-card { grid-column: 1; }
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .btn {
+      flex: 1;
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      transition: var(--transition);
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #0d1117;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover  { filter: brightness(1.15); }
+    .btn-primary:active { filter: brightness(0.9); }
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+    .btn-secondary:hover { background: var(--bg-hover); border-color: var(--border-light); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+
+    /* Слайдеры */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .slider-row { display: flex; flex-direction: column; gap: 5px; }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+    }
+    .slider-header span:first-child { color: var(--text-muted); }
+    .slider-header .slider-val { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+      height: 4px;
+    }
+
+    /* Статистика */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+    .stat-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .stat-value.good { color: var(--accent-2); }
+    .stat-value.warn { color: #e3b341; }
+
+    /* Веса */
+    .weights-display {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .weight-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.83rem;
+    }
+    .weight-label {
+      width: 50px;
+      color: var(--text-muted);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .weight-bar-wrap {
+      flex: 1;
+      height: 8px;
+      background: var(--bg-secondary);
+      border-radius: 4px;
+      overflow: visible;
+      position: relative;
+    }
+    .weight-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.12s ease, background 0.12s ease;
+      position: absolute;
+      top: 0;
+    }
+    /* Центральная отметка */
+    .weight-bar-wrap::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: -2px;
+      width: 2px;
+      height: 12px;
+      background: var(--border-light);
+      border-radius: 1px;
+    }
+    .weight-val {
+      width: 60px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    /* ===== График ошибки ===== */
+    #loss-card { grid-column: 1; }
+
+    /* ===== История весов ===== */
+    #history-card {
+      grid-column: 1 / -1;
+    }
+    .history-canvas-wrap {
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+    }
+
+    /* ===== Адаптивность ===== */
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+      }
+      #neuron-card { grid-column: 1; grid-row: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== Шапка ===== -->
+<header>
+  <div class="icon">🔬</div>
+  <div>
+    <h1>Нейрон и логические вентили</h1>
+    <p>Визуализация обучения нейрона с помощью градиентного спуска</p>
+  </div>
+  <div class="nav-pill">Урок <span>02</span> / 06</div>
+</header>
+
+<main>
+
+  <!-- ===== 1. Выбор вентиля ===== -->
+  <div class="card" id="gate-selector">
+    <div class="card-title">Логический вентиль</div>
+    <div class="gate-buttons">
+      <button class="gate-btn active-and" data-gate="AND" onclick="selectGate('AND')">
+        <div class="gate-name">AND</div>
+        <div class="gate-desc">Оба входа должны быть 1</div>
+      </button>
+      <button class="gate-btn" data-gate="OR" onclick="selectGate('OR')">
+        <div class="gate-name">OR</div>
+        <div class="gate-desc">Хотя бы один вход равен 1</div>
+      </button>
+      <button class="gate-btn" data-gate="XOR" onclick="selectGate('XOR')">
+        <div class="gate-name">XOR</div>
+        <div class="gate-desc">Один из входов равен 1 (не оба)</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== 2. Таблица истинности ===== -->
+  <div class="card" id="truth-table-card">
+    <div class="card-title">Таблица истинности</div>
+    <table class="truth-table">
+      <thead>
+        <tr>
+          <th>X₁</th>
+          <th>X₂</th>
+          <th>Ожидание</th>
+          <th>Нейрон</th>
+        </tr>
+      </thead>
+      <tbody id="truth-tbody"></tbody>
+    </table>
+    <div id="xor-warning" style="margin-top:12px;">
+      <strong>⚠ XOR не решается одним нейроном!</strong>
+      XOR — нелинейно разделимая задача. Одиночный нейрон проводит лишь одну прямую (границу решения) и не может корректно разделить все 4 точки XOR. Ошибка не будет сходиться к нулю. Для XOR нужна нейронная сеть с хотя бы одним скрытым слоем.
+    </div>
+  </div>
+
+  <!-- ===== 3. Диаграмма нейрона + граница решения ===== -->
+  <div class="card" id="neuron-card">
+    <div class="card-title">Нейрон и граница решения</div>
+    <!-- Диаграмма нейрона -->
+    <div class="canvas-wrap" style="height:200px;">
+      <span class="canvas-label">Структура нейрона</span>
+      <canvas id="neuronCanvas" height="200"></canvas>
+    </div>
+    <!-- Граница решения на сетке -->
+    <div class="canvas-wrap" style="height:340px;">
+      <span class="canvas-label">Граница решения (2D)</span>
+      <canvas id="boundaryCanvas" height="340"></canvas>
+    </div>
+  </div>
+
+  <!-- ===== 4. Управление обучением ===== -->
+  <div class="card" id="controls-card">
+    <div class="card-title">Управление обучением</div>
+
+    <!-- Кнопки -->
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnTrain" onclick="startTraining()">▶ Начать обучение</button>
+      <button class="btn btn-secondary" id="btnReset" onclick="resetAll()">↺ Сброс</button>
+    </div>
+
+    <!-- Слайдеры -->
+    <div class="slider-group">
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Скорость обучения (η)</span>
+          <span class="slider-val" id="lrVal">0.10</span>
+        </div>
+        <input type="range" id="lrSlider" min="0.01" max="1.0" step="0.01" value="0.10"
+               oninput="document.getElementById('lrVal').textContent = parseFloat(this.value).toFixed(2)">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Скорость анимации</span>
+          <span class="slider-val" id="speedVal">средняя</span>
+        </div>
+        <input type="range" id="speedSlider" min="1" max="5" step="1" value="3"
+               oninput="updateSpeedLabel(this.value)">
+      </div>
+    </div>
+
+    <!-- Статистика эпох -->
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-label">Эпоха</div>
+        <div class="stat-value" id="statEpoch">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Ошибка (MSE)</div>
+        <div class="stat-value" id="statLoss">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Точность</div>
+        <div class="stat-value" id="statAcc">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Статус</div>
+        <div class="stat-value" id="statStatus">Готов</div>
+      </div>
+    </div>
+
+    <!-- Текущие веса -->
+    <div class="weights-display">
+      <div class="weight-row">
+        <div class="weight-label">w₁</div>
+        <div class="weight-bar-wrap"><div class="weight-bar-fill" id="bar-w1"></div></div>
+        <div class="weight-val" id="val-w1">0.00</div>
+      </div>
+      <div class="weight-row">
+        <div class="weight-label">w₂</div>
+        <div class="weight-bar-wrap"><div class="weight-bar-fill" id="bar-w2"></div></div>
+        <div class="weight-val" id="val-w2">0.00</div>
+      </div>
+      <div class="weight-row">
+        <div class="weight-label">bias</div>
+        <div class="weight-bar-wrap"><div class="weight-bar-fill" id="bar-b"></div></div>
+        <div class="weight-val" id="val-b">0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 5. График ошибки ===== -->
+  <div class="card" id="loss-card">
+    <div class="card-title">График ошибки (MSE)</div>
+    <div class="canvas-wrap" style="height:160px;">
+      <canvas id="lossCanvas" height="160"></canvas>
+    </div>
+  </div>
+
+  <!-- ===== 6. История весов ===== -->
+  <div class="card" id="history-card">
+    <div class="card-title">История изменения весов</div>
+    <div class="history-canvas-wrap" style="height:160px;">
+      <canvas id="historyCanvas" height="160"></canvas>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ===========================================================
+   КОНСТАНТЫ И НАЧАЛЬНЫЕ ДАННЫЕ
+   =========================================================== */
+
+// Данные для каждого вентиля: входы и ожидаемые выходы
+const GATES = {
+  AND: { inputs: [[0,0],[0,1],[1,0],[1,1]], outputs: [0,0,0,1], color: '#58a6ff' },
+  OR:  { inputs: [[0,0],[0,1],[1,0],[1,1]], outputs: [0,1,1,1], color: '#d2a8ff' },
+  XOR: { inputs: [[0,0],[0,1],[1,0],[1,1]], outputs: [0,1,1,0], color: '#f78166' },
+};
+
+// Метки скоростей анимации
+const SPEED_LABELS = ['очень медленно', 'медленно', 'средняя', 'быстро', 'мгновенно'];
+
+// Максимальное количество эпох обучения
+const MAX_EPOCHS = 2000;
+
+// Минимальное количество итераций на кадр в зависимости от уровня скорости
+const STEPS_PER_FRAME = [1, 3, 8, 25, 100];
+
+// Диапазон начальной инициализации весов: веса берутся из [-WEIGHT_INIT_RANGE, +WEIGHT_INIT_RANGE]
+const WEIGHT_INIT_RANGE = 0.2;
+
+// Максимальное абсолютное значение веса, отображаемое на полосах (bar normalization: [-MAX_WEIGHT_VIS, +MAX_WEIGHT_VIS] → 0–100%)
+const MAX_WEIGHT_VIS = 2;
+
+// Максимальное количество точек в историях потерь/весов (прореживание для экономии памяти)
+const MAX_HISTORY_POINTS = 400;
+
+// Порог ошибки для ранней остановки обучения
+const EARLY_STOP_THRESHOLD = 0.0001;
+
+// Шаг пикселей при отрисовке тепловой карты границы решения (меньше = качественнее, но медленнее)
+const BOUNDARY_RENDER_STEP = 3;
+
+// Шаг прореживания истории: сохраняем одну точку каждые HISTORY_STRIDE эпох
+const HISTORY_STRIDE = Math.max(1, Math.floor(MAX_EPOCHS / MAX_HISTORY_POINTS));
+
+/* ===========================================================
+   СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+   =========================================================== */
+let currentGate = 'AND'; // текущий вентиль
+let w1, w2, bias;        // веса нейрона
+let epoch = 0;           // текущая эпоха
+let isTraining = false;  // флаг активного обучения
+let animId = null;       // id requestAnimationFrame
+
+// История для графиков
+let lossHistory    = [];
+let w1History      = [];
+let w2History      = [];
+let biasHistory    = [];
+
+// Индекс выбранной строки таблицы
+let selectedRow = -1;
+
+/* ===========================================================
+   ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+   =========================================================== */
+
+// Сигмоида — функция активации нейрона
+function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+
+// Производная сигмоиды (через значение сигмоиды)
+function sigmoidDeriv(s) { return s * (1 - s); }
+
+// Прямой проход нейрона: вычисляет активацию
+function forward(x1, x2) {
+  return sigmoid(w1 * x1 + w2 * x2 + bias);
+}
+
+// Одна эпоха: обходим все 4 примера и делаем градиентный спуск
+function trainEpoch(lr) {
+  const gate = GATES[currentGate];
+  let totalLoss = 0;
+
+  for (let i = 0; i < 4; i++) {
+    const x1 = gate.inputs[i][0];
+    const x2 = gate.inputs[i][1];
+    const y  = gate.outputs[i];
+
+    const pred  = forward(x1, x2);
+    const error = y - pred;
+
+    // Градиент через цепное правило: ∂L/∂w = -error * σ'(pred) * x
+    const delta = error * sigmoidDeriv(pred);
+
+    w1   += lr * delta * x1;
+    w2   += lr * delta * x2;
+    bias += lr * delta;
+
+    // MSE накапливается
+    totalLoss += 0.5 * error * error;
+  }
+
+  return totalLoss / 4; // среднее MSE
+}
+
+// Вычислить точность (% правильно классифицированных при пороге 0.5)
+function calcAccuracy() {
+  const gate = GATES[currentGate];
+  let correct = 0;
+  for (let i = 0; i < 4; i++) {
+    const pred = forward(gate.inputs[i][0], gate.inputs[i][1]);
+    if (Math.round(pred) === gate.outputs[i]) correct++;
+  }
+  return (correct / 4) * 100;
+}
+
+/* ===========================================================
+   ИНИЦИАЛИЗАЦИЯ / СБРОС
+   =========================================================== */
+
+function init() {
+  // Небольшие случайные начальные веса для запуска градиентного спуска
+  w1   = (Math.random() - 0.5) * 2 * WEIGHT_INIT_RANGE;
+  w2   = (Math.random() - 0.5) * 2 * WEIGHT_INIT_RANGE;
+  bias = (Math.random() - 0.5) * 2 * WEIGHT_INIT_RANGE;
+  epoch        = 0;
+  lossHistory  = [];
+  w1History    = [];
+  w2History    = [];
+  biasHistory  = [];
+  selectedRow  = -1;
+
+  updateStats(null);
+  updateWeightBars();
+  buildTruthTable();
+  drawNeuron();
+  drawBoundary();
+  drawLossChart();
+  drawHistoryChart();
+}
+
+function resetAll() {
+  if (isTraining) stopTraining();
+  document.getElementById('statStatus').textContent = 'Готов';
+  document.getElementById('statStatus').style.color = '';
+  init();
+}
+
+/* ===========================================================
+   УПРАВЛЕНИЕ ОБУЧЕНИЕМ
+   =========================================================== */
+
+function startTraining() {
+  if (isTraining) { stopTraining(); return; }
+
+  isTraining = true;
+  document.getElementById('btnTrain').textContent = '⏸ Пауза';
+  document.getElementById('statStatus').textContent = 'Обучение…';
+  document.getElementById('statStatus').style.color = '#e3b341';
+
+  animLoop();
+}
+
+function stopTraining() {
+  isTraining = false;
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  document.getElementById('btnTrain').textContent = '▶ Продолжить';
+  document.getElementById('statStatus').textContent = 'Пауза';
+  document.getElementById('statStatus').style.color = '';
+}
+
+function animLoop() {
+  if (!isTraining) return;
+
+  const lr          = parseFloat(document.getElementById('lrSlider').value);
+  const speedLevel  = parseInt(document.getElementById('speedSlider').value) - 1;
+  const steps       = STEPS_PER_FRAME[speedLevel];
+
+  for (let s = 0; s < steps; s++) {
+    if (epoch >= MAX_EPOCHS) { finishTraining(); return; }
+
+    const loss = trainEpoch(lr);
+    epoch++;
+
+    // Записываем в историю каждые HISTORY_STRIDE шагов, чтобы графики не разбухали
+    if (epoch % HISTORY_STRIDE === 0 || epoch === 1) {
+      lossHistory.push(loss);
+      w1History.push(w1);
+      w2History.push(w2);
+      biasHistory.push(bias);
+    }
+
+    // Ранняя остановка: ошибка ниже порога (не для XOR — он не сойдётся)
+    if (loss < EARLY_STOP_THRESHOLD && currentGate !== 'XOR') {
+      epoch++; // последний шаг
+      finishTraining();
+      return;
+    }
+  }
+
+  // Обновляем UI каждый кадр
+  const lastLoss = lossHistory.length ? lossHistory[lossHistory.length - 1] : null;
+  updateStats(lastLoss);
+  updateWeightBars();
+  updateTruthPredictions();
+  drawNeuron();
+  drawBoundary();
+  drawLossChart();
+  drawHistoryChart();
+
+  animId = requestAnimationFrame(animLoop);
+}
+
+function finishTraining() {
+  isTraining = false;
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  document.getElementById('btnTrain').textContent = '▶ Начать обучение';
+
+  const acc = calcAccuracy();
+  const lastLoss = lossHistory.length ? lossHistory[lossHistory.length - 1] : 0;
+
+  updateStats(lastLoss);
+  updateWeightBars();
+  updateTruthPredictions();
+  drawNeuron();
+  drawBoundary();
+  drawLossChart();
+  drawHistoryChart();
+
+  if (currentGate === 'XOR') {
+    document.getElementById('statStatus').textContent = 'Не сошлось';
+    document.getElementById('statStatus').style.color = 'var(--accent-xor)';
+  } else {
+    document.getElementById('statStatus').textContent = acc >= 100 ? '✓ Готово' : 'Завершено';
+    document.getElementById('statStatus').style.color = acc >= 100 ? 'var(--accent-2)' : 'var(--warn)';
+  }
+}
+
+/* ===========================================================
+   ОБНОВЛЕНИЕ UI
+   =========================================================== */
+
+function updateStats(loss) {
+  document.getElementById('statEpoch').textContent = epoch;
+
+  if (loss !== null) {
+    const lossEl = document.getElementById('statLoss');
+    lossEl.textContent = loss.toFixed(4);
+    lossEl.className   = 'stat-value' + (loss < 0.01 ? ' good' : loss < 0.1 ? '' : ' warn');
+  } else {
+    document.getElementById('statLoss').textContent = '—';
+    document.getElementById('statLoss').className   = 'stat-value';
+  }
+
+  const acc    = calcAccuracy();
+  const accEl  = document.getElementById('statAcc');
+  accEl.textContent = epoch > 0 ? acc.toFixed(0) + '%' : '—';
+  accEl.className   = 'stat-value' + (acc >= 100 ? ' good' : acc >= 75 ? '' : ' warn');
+}
+
+// Обновить полосы весов: диапазон [-MAX_WEIGHT_VIS, +MAX_WEIGHT_VIS] → 0–100%
+function updateWeightBars() {
+  const weights = { w1, w2, bias };
+  const ids     = { w1: 'w1', w2: 'w2', bias: 'b' };
+  const range   = MAX_WEIGHT_VIS * 2; // полный диапазон полосы
+  for (const [key, id] of Object.entries(ids)) {
+    const val  = weights[key];
+    const pct  = ((val + MAX_WEIGHT_VIS) / range) * 100; // нормируем к [0,100]
+    const fill = document.getElementById('bar-' + id);
+    const valEl= document.getElementById('val-'  + id);
+    valEl.textContent = val.toFixed(3);
+
+    // Строим полосу: от центра (50%) в нужную сторону
+    if (val >= 0) {
+      fill.style.left   = '50%';
+      fill.style.width  = Math.min(pct - 50, 50) + '%';
+      fill.style.background = 'var(--accent-2)';
+    } else {
+      fill.style.left   = Math.max(pct, 0) + '%';
+      fill.style.width  = (50 - Math.max(pct, 0)) + '%';
+      fill.style.background = 'var(--accent-xor)';
+    }
+  }
+}
+
+function updateSpeedLabel(val) {
+  document.getElementById('speedVal').textContent = SPEED_LABELS[parseInt(val) - 1];
+}
+
+/* ===========================================================
+   ТАБЛИЦА ИСТИННОСТИ
+   =========================================================== */
+
+function buildTruthTable() {
+  const gate  = GATES[currentGate];
+  const tbody = document.getElementById('truth-tbody');
+  tbody.innerHTML = '';
+
+  for (let i = 0; i < 4; i++) {
+    const tr = document.createElement('tr');
+    tr.dataset.idx = i;
+    tr.onclick = () => selectTableRow(i);
+
+    const [x1, x2] = gate.inputs[i];
+    const expected  = gate.outputs[i];
+
+    tr.innerHTML = `
+      <td class="${x1 ? 'val-1' : 'val-0'}">${x1}</td>
+      <td class="${x2 ? 'val-1' : 'val-0'}">${x2}</td>
+      <td class="${expected ? 'val-1' : 'val-0'}">${expected}</td>
+      <td><span class="pred-badge pred-neutral" id="pred-${i}">—</span></td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function updateTruthPredictions() {
+  const gate = GATES[currentGate];
+  for (let i = 0; i < 4; i++) {
+    const [x1, x2] = gate.inputs[i];
+    const expected  = gate.outputs[i];
+    const raw       = forward(x1, x2);
+    const predicted = Math.round(raw);
+    const isCorrect = predicted === expected;
+    const el = document.getElementById('pred-' + i);
+    if (el) {
+      el.textContent  = raw.toFixed(2);
+      el.className    = 'pred-badge ' + (isCorrect ? 'pred-correct' : 'pred-wrong');
+    }
+  }
+}
+
+function selectTableRow(idx) {
+  selectedRow = (selectedRow === idx) ? -1 : idx;
+  document.querySelectorAll('#truth-tbody tr').forEach(tr => {
+    tr.classList.toggle('selected', parseInt(tr.dataset.idx) === selectedRow);
+  });
+  drawBoundary(); // перерисовать, выделив точку
+}
+
+/* ===========================================================
+   ВЫБОР ВЕНТИЛЯ
+   =========================================================== */
+
+function selectGate(name) {
+  if (isTraining) stopTraining();
+  currentGate = name;
+
+  // Переключить активную кнопку
+  document.querySelectorAll('.gate-btn').forEach(btn => {
+    btn.className = 'gate-btn' + (btn.dataset.gate === name ? ` active-${name.toLowerCase()}` : '');
+  });
+
+  // Показать/скрыть предупреждение для XOR
+  document.getElementById('xor-warning').style.display = name === 'XOR' ? 'block' : 'none';
+
+  init();
+}
+
+/* ===========================================================
+   РИСОВАНИЕ: ДИАГРАММА НЕЙРОНА
+   =========================================================== */
+
+function drawNeuron() {
+  const canvas = document.getElementById('neuronCanvas');
+  const W = canvas.offsetWidth || 400;
+  canvas.width  = W;
+  canvas.height = 200;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, 200);
+
+  const gateColor = GATES[currentGate].color;
+  const cx = W * 0.58;   // центр нейрона X
+  const cy = 100;        // центр нейрона Y
+  const nr = 36;         // радиус нейрона
+
+  // Координаты входных узлов
+  const inputs = [
+    { x: W * 0.12, y: 65,  label: 'X₁', w: w1   },
+    { x: W * 0.12, y: 135, label: 'X₂', w: w2   },
+  ];
+
+  // Узел смещения (bias)
+  const biasNode = { x: W * 0.12, y: 195, label: '1', w: bias };
+
+  // Рисуем рёбра (веса)
+  [...inputs, biasNode].forEach(inp => {
+    const absW   = Math.abs(inp.w);
+    const thick  = Math.min(absW * 3 + 0.8, 7);
+    const alpha  = Math.min(0.3 + absW * 0.5, 1);
+    const color  = inp.w >= 0 ? '#3fb950' : '#f78166';
+
+    ctx.beginPath();
+    ctx.moveTo(inp.x + 18, inp.y);
+    ctx.lineTo(cx - nr, cy);
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth   = thick;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Подпись веса на ребре
+    const mx = (inp.x + 20 + cx - nr) / 2;
+    const my = (inp.y + cy) / 2;
+    ctx.fillStyle = color;
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(inp.w.toFixed(2), mx, my - 4);
+  });
+
+  // Выходное ребро
+  ctx.beginPath();
+  ctx.moveTo(cx + nr, cy);
+  ctx.lineTo(W - W * 0.08, cy);
+  ctx.strokeStyle = gateColor;
+  ctx.lineWidth   = 2.5;
+  ctx.globalAlpha = 0.8;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Входные узлы
+  inputs.forEach(inp => {
+    ctx.beginPath();
+    ctx.arc(inp.x, inp.y, 16, 0, Math.PI * 2);
+    ctx.fillStyle   = '#1c2230';
+    ctx.strokeStyle = '#3d444d';
+    ctx.lineWidth   = 2;
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle  = '#e6edf3';
+    ctx.font       = 'bold 13px sans-serif';
+    ctx.textAlign  = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(inp.label, inp.x, inp.y);
+  });
+
+  // Узел смещения (маленький, снизу)
+  ctx.beginPath();
+  ctx.arc(biasNode.x, biasNode.y, 12, 0, Math.PI * 2);
+  ctx.fillStyle   = '#1c2230';
+  ctx.strokeStyle = '#58585e';
+  ctx.lineWidth   = 1.5;
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#8b949e';
+  ctx.font      = 'bold 11px sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign    = 'center';
+  ctx.fillText('b', biasNode.x, biasNode.y);
+
+  // Нейрон (кружок)
+  const grad = ctx.createRadialGradient(cx - 8, cy - 8, 2, cx, cy, nr);
+  grad.addColorStop(0, '#2a3a50');
+  grad.addColorStop(1, '#1c2230');
+  ctx.beginPath();
+  ctx.arc(cx, cy, nr, 0, Math.PI * 2);
+  ctx.fillStyle   = grad;
+  ctx.strokeStyle = gateColor;
+  ctx.lineWidth   = 3;
+  ctx.fill();
+  ctx.stroke();
+
+  // Сигма внутри нейрона
+  ctx.fillStyle    = gateColor;
+  ctx.font         = 'bold 20px serif';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('σ', cx, cy);
+
+  // Метка выхода
+  ctx.fillStyle    = gateColor;
+  ctx.font         = 'bold 13px sans-serif';
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('ŷ', W - W * 0.06, cy);
+
+  // Вывести текущую активацию для выбранной строки
+  if (selectedRow >= 0) {
+    const gate = GATES[currentGate];
+    const [x1, x2] = gate.inputs[selectedRow];
+    const activation = forward(x1, x2);
+    ctx.fillStyle    = '#e6edf3';
+    ctx.font         = '11px monospace';
+    ctx.textAlign    = 'right';
+    ctx.fillText('= ' + activation.toFixed(3), W - 6, cy + 18);
+  }
+}
+
+/* ===========================================================
+   РИСОВАНИЕ: ГРАНИЦА РЕШЕНИЯ (2D СЕТКА)
+   =========================================================== */
+
+function drawBoundary() {
+  const canvas = document.getElementById('boundaryCanvas');
+  const W = canvas.offsetWidth  || 400;
+  const H = canvas.offsetHeight || 340;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const pad  = 46; // отступ от края
+  const pw   = W - pad * 2; // ширина рабочей области
+  const ph   = H - pad * 2; // высота рабочей области
+
+  // Рисуем карту активации попиксельно (ступенчато для быстроты, размер шага = BOUNDARY_RENDER_STEP)
+  const step  = BOUNDARY_RENDER_STEP;
+  const gateColor = GATES[currentGate].color;
+
+  for (let px = 0; px < pw; px += step) {
+    for (let py = 0; py < ph; py += step) {
+      const x1 = px / pw;            // нормируем в [0,1]
+      const x2 = 1 - py / ph;        // ось Y инвертирована
+      const act = forward(x1, x2);
+
+      // Цвет от 0 (тёмно-красный) к 1 (тёмно-синий/зелёный)
+      const r = Math.round(30  + (1 - act) * 100);
+      const g = Math.round(30  + act * 80);
+      const b = Math.round(30  + act * 150);
+      ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
+      ctx.fillRect(pad + px, pad + py, step, step);
+    }
+  }
+
+  // Сетка осей
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= 4; i++) {
+    const x = pad + (pw * i / 4);
+    const y = pad + (ph * i / 4);
+    ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, pad + ph); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(pad + pw, y); ctx.stroke();
+  }
+
+  // Оси X и Y
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth   = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, pad + ph); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad, pad + ph); ctx.lineTo(pad + pw, pad + ph); ctx.stroke();
+
+  // Линия границы решения (сигмоида = 0.5 ↔ w1*x1 + w2*x2 + bias = 0)
+  // Пересекаем x1 от 0 до 1 и находим x2
+  if (Math.abs(w2) > 0.001) {
+    ctx.beginPath();
+    let started = false;
+    for (let px = 0; px <= pw; px += 2) {
+      const x1 = px / pw;
+      const x2 = -(w1 * x1 + bias) / w2;
+      if (x2 < 0 || x2 > 1) continue;
+      const sx = pad + px;
+      const sy = pad + ph - x2 * ph;
+      if (!started) { ctx.moveTo(sx, sy); started = true; }
+      else          { ctx.lineTo(sx, sy); }
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth   = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Точки данных
+  const gate = GATES[currentGate];
+  gate.inputs.forEach(([x1, x2], i) => {
+    const expected = gate.outputs[i];
+    const pred     = forward(x1, x2);
+    const correct  = Math.round(pred) === expected;
+    const sx = pad + x1 * pw;
+    const sy = pad + ph - x2 * ph;
+
+    // Тень
+    ctx.beginPath();
+    ctx.arc(sx, sy, 12, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fill();
+
+    // Заливка точки
+    ctx.beginPath();
+    ctx.arc(sx, sy, 11, 0, Math.PI * 2);
+    ctx.fillStyle = expected === 1
+      ? (correct ? 'rgba(63,185,80,0.9)' : 'rgba(247,129,102,0.9)')
+      : (correct ? 'rgba(30,40,60,0.9)'  : 'rgba(247,129,102,0.5)');
+    ctx.strokeStyle = selectedRow === i ? 'white' : gateColor;
+    ctx.lineWidth   = selectedRow === i ? 3 : 1.5;
+    ctx.fill();
+    ctx.stroke();
+
+    // Метка: ожидание
+    ctx.fillStyle    = '#e6edf3';
+    ctx.font         = 'bold 11px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(expected, sx, sy);
+  });
+
+  // Метки осей
+  ctx.fillStyle    = 'rgba(139,148,158,0.9)';
+  ctx.font         = '12px sans-serif';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('0', pad, pad + ph + 6);
+  ctx.fillText('1', pad + pw, pad + ph + 6);
+  ctx.fillText('X₁', pad + pw / 2, pad + ph + 6);
+
+  ctx.textAlign    = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('0', pad - 6, pad + ph);
+  ctx.fillText('1', pad - 6, pad);
+  ctx.save();
+  ctx.translate(14, pad + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('X₂', 0, 0);
+  ctx.restore();
+
+  // Легенда
+  const legend = [
+    { color: '#3fb950', label: 'Класс 1 (верно)' },
+    { color: '#f78166', label: 'Ошибка'          },
+    { color: 'rgba(30,40,60,0.9)', label: 'Класс 0 (верно)', stroke: gateColor },
+  ];
+  ctx.font = '11px sans-serif';
+  legend.forEach((item, li) => {
+    const lx = pad + li * (pw / 3) + 10;
+    const ly = 10;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 5, 0, Math.PI * 2);
+    ctx.fillStyle   = item.color;
+    ctx.strokeStyle = item.stroke || item.color;
+    ctx.lineWidth   = 1;
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle    = 'rgba(230,237,243,0.7)';
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.label, lx + 8, ly);
+  });
+}
+
+/* ===========================================================
+   РИСОВАНИЕ: ГРАФИК ОШИБКИ
+   =========================================================== */
+
+function drawLossChart() {
+  const canvas = document.getElementById('lossCanvas');
+  const W = canvas.offsetWidth  || 400;
+  const H = 160;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 46, padR = 12, padT = 14, padB = 28;
+  const cw = W - padL - padR;
+  const ch = H - padT - padB;
+
+  // Фон
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fillRect(padL, padT, cw, ch);
+
+  if (lossHistory.length < 2) {
+    ctx.fillStyle = 'rgba(139,148,158,0.5)';
+    ctx.font      = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Запустите обучение', padL + cw / 2, padT + ch / 2);
+    return;
+  }
+
+  const maxLoss = Math.max(...lossHistory, 0.001);
+  const n       = lossHistory.length;
+
+  // Горизонтальные линии сетки
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + ch - (ch * i / 4);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + cw, y);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth   = 1;
+    ctx.stroke();
+    ctx.fillStyle    = 'rgba(139,148,158,0.7)';
+    ctx.font         = '10px monospace';
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((maxLoss * i / 4).toFixed(3), padL - 4, y);
+  }
+
+  // Область под кривой
+  const gateColor = GATES[currentGate].color;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT + ch);
+  lossHistory.forEach((loss, i) => {
+    const x = padL + (i / (n - 1)) * cw;
+    const y = padT + ch - (loss / maxLoss) * ch;
+    ctx.lineTo(x, y);
+  });
+  ctx.lineTo(padL + cw, padT + ch);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + ch);
+  grad.addColorStop(0, gateColor.replace(')', ',0.25)').replace('rgb', 'rgba'));
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Кривая потерь
+  ctx.beginPath();
+  lossHistory.forEach((loss, i) => {
+    const x = padL + (i / (n - 1)) * cw;
+    const y = padT + ch - (loss / maxLoss) * ch;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = gateColor;
+  ctx.lineWidth   = 2;
+  ctx.stroke();
+
+  // Ось X: метки (используем глобальный HISTORY_STRIDE для вычисления реальных номеров эпох)
+  ctx.fillStyle    = 'rgba(139,148,158,0.7)';
+  ctx.font         = '10px monospace';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('0',                                    padL,          padT + ch + 5);
+  ctx.fillText('' + (n * HISTORY_STRIDE / 2 | 0),     padL + cw / 2, padT + ch + 5);
+  ctx.fillText('' + (n * HISTORY_STRIDE),              padL + cw,     padT + ch + 5);
+
+  // Метка оси Y
+  ctx.save();
+  ctx.translate(10, padT + ch / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = 'rgba(139,148,158,0.5)';
+  ctx.font      = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('MSE', 0, 0);
+  ctx.restore();
+}
+
+/* ===========================================================
+   РИСОВАНИЕ: ИСТОРИЯ ВЕСОВ
+   =========================================================== */
+
+function drawHistoryChart() {
+  const canvas = document.getElementById('historyCanvas');
+  const W = canvas.offsetWidth  || 1000;
+  const H = 160;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 46, padR = 80, padT = 14, padB = 28;
+  const cw = W - padL - padR;
+  const ch = H - padT - padB;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fillRect(padL, padT, cw, ch);
+
+  if (w1History.length < 2) {
+    ctx.fillStyle = 'rgba(139,148,158,0.5)';
+    ctx.font      = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Запустите обучение', padL + cw / 2, padT + ch / 2);
+    return;
+  }
+
+  const allVals = [...w1History, ...w2History, ...biasHistory];
+  const minV    = Math.min(...allVals) - 0.2;
+  const maxV    = Math.max(...allVals) + 0.2;
+  const range   = maxV - minV || 1;
+  const n       = w1History.length;
+
+  // Линии сетки
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + ch - (ch * i / 4);
+    ctx.beginPath();
+    ctx.moveTo(padL, y); ctx.lineTo(padL + cw, y);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth   = 1;
+    ctx.stroke();
+    ctx.fillStyle    = 'rgba(139,148,158,0.7)';
+    ctx.font         = '10px monospace';
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((minV + range * i / 4).toFixed(2), padL - 4, y);
+  }
+
+  // Рисует одну кривую истории весов
+  function drawLine(history, color, label) {
+    ctx.beginPath();
+    history.forEach((v, i) => {
+      const x = padL + (i / (n - 1)) * cw;
+      const y = padT + ch - ((v - minV) / range) * ch;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+
+    // Последнее значение
+    const last = history[history.length - 1];
+    const lx   = padL + cw + 6;
+    const ly   = padT + ch - ((last - minV) / range) * ch;
+    ctx.fillStyle    = color;
+    ctx.font         = 'bold 11px monospace';
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label + ' ' + last.toFixed(2), lx, ly);
+  }
+
+  drawLine(w1History,   '#58a6ff', 'w₁');
+  drawLine(w2History,   '#3fb950', 'w₂');
+  drawLine(biasHistory, '#f78166', 'b');
+
+  // Нулевая линия
+  const zeroY = padT + ch - ((0 - minV) / range) * ch;
+  if (zeroY > padT && zeroY < padT + ch) {
+    ctx.beginPath();
+    ctx.moveTo(padL, zeroY); ctx.lineTo(padL + cw, zeroY);
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+/* ===========================================================
+   RESIZE: перерисовываем холсты при изменении размера окна
+   =========================================================== */
+window.addEventListener('resize', () => {
+  drawNeuron();
+  drawBoundary();
+  drawLossChart();
+  drawHistoryChart();
+});
+
+/* ===========================================================
+   СТАРТ
+   =========================================================== */
+
+// Инициализация при загрузке страницы
+window.addEventListener('DOMContentLoaded', () => {
+  selectGate('AND');
+  updateSpeedLabel(3);
+});
+</script>
+</body>
+</html>

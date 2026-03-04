@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Визуализация обучения нейронной сети</title>
+<style>
+/* ===== Общие стили ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d0f14;
+  --bg2:       #141720;
+  --bg3:       #1c2030;
+  --border:    #2a2f45;
+  --accent:    #4f8ef7;
+  --accent2:   #7c5cf7;
+  --green:     #3ecf8e;
+  --orange:    #f7a24f;
+  --red:       #f75f5f;
+  --text:      #d4d8f0;
+  --text-muted:#6b7199;
+  --radius:    8px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1 {
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+/* ===== Шапка ===== */
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+header .nav-links {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+}
+
+header .nav-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  transition: background .2s, color .2s;
+}
+
+header .nav-links a:hover,
+header .nav-links a.active {
+  background: var(--border);
+  color: var(--text);
+}
+
+/* ===== Основная сетка ===== */
+.main-grid {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  grid-template-rows: auto;
+  gap: 12px;
+  padding: 12px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* ===== Панели ===== */
+.panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+/* ===== Боковая панель управления ===== */
+.sidebar {
+  grid-row: 1 / 4;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ===== Слайдеры и контролы ===== */
+label.ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+label.ctrl span.lbl {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+}
+
+label.ctrl span.lbl b {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  transition: transform .15s;
+}
+
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 5px;
+  padding: 5px 8px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+select:focus { border-color: var(--accent); }
+
+/* ===== Кнопки ===== */
+.btn-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.btn-group.three { grid-template-columns: 1fr 1fr 1fr; }
+
+button {
+  padding: 7px 6px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: opacity .15s, transform .1s;
+  white-space: nowrap;
+}
+
+button:hover { opacity: .85; }
+button:active { transform: scale(.96); }
+
+.btn-primary   { background: var(--accent);  color: #fff; }
+.btn-secondary { background: var(--bg3);     color: var(--text);   border: 1px solid var(--border); }
+.btn-green     { background: var(--green);   color: #0a2a1a; }
+.btn-orange    { background: var(--orange);  color: #2a1800; }
+.btn-red       { background: var(--red);     color: #fff; }
+.btn-purple    { background: var(--accent2); color: #fff; }
+
+button:disabled { opacity: .35; cursor: default; }
+
+/* ===== Статистика ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stat-box {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.stat-box .val {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.stat-box .key {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ===== Основная область ===== */
+.content-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ===== Верхний ряд канвасов ===== */
+.canvas-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ===== Нижний ряд канвасов ===== */
+.canvas-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  border-radius: 5px;
+  background: var(--bg);
+}
+
+.canvas-wrap {
+  position: relative;
+}
+
+.canvas-wrap canvas {
+  cursor: crosshair;
+}
+
+/* ===== Бейдж статуса ===== */
+#status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  transition: all .3s;
+}
+
+#status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: background .3s;
+}
+
+#status-badge.running #status-dot {
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulse 1s infinite;
+}
+
+#status-badge.paused #status-dot { background: var(--orange); }
+#status-badge.done #status-dot   { background: var(--accent); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .4; }
+}
+
+/* ===== Сеть (SVG) ===== */
+#net-svg { width: 100%; height: 180px; }
+
+/* ===== Heatmap ===== */
+#heatmap-canvas { image-rendering: pixelated; }
+
+/* ===== Скроллбар ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ===== Адаптив ===== */
+@media (max-width: 1100px) {
+  .main-grid { grid-template-columns: 200px 1fr; }
+}
+
+@media (max-width: 860px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .sidebar { grid-row: auto; }
+  .canvas-row, .canvas-row-3 { grid-template-columns: 1fr; }
+}
+
+/* ===== Тултип ===== */
+.tooltip {
+  position: absolute;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 11px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 99;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+
+<!-- ===== ШАПКА ===== -->
+<header>
+  <h1>🧠 Обучение нейросети</h1>
+  <div class="nav-links">
+    <a href="01-single-neuron.html">Нейрон</a>
+    <a href="02-logic-gates.html">Логика</a>
+    <a href="03-neural-network.html">Сеть</a>
+    <a href="04-training-visualization.html" class="active">Обучение</a>
+  </div>
+  <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+    <span id="status-badge"><span id="status-dot"></span><span id="status-text">Готово</span></span>
+  </div>
+</header>
+
+<!-- ===== ОСНОВНАЯ СЕТКА ===== -->
+<div class="main-grid">
+
+  <!-- ===== БОКОВАЯ ПАНЕЛЬ ===== -->
+  <aside class="sidebar">
+
+    <!-- Задача -->
+    <div class="panel">
+      <h2>Задача аппроксимации</h2>
+      <label class="ctrl">
+        <span class="lbl">Целевая функция</span>
+        <select id="sel-func">
+          <option value="sine">Синус</option>
+          <option value="parabola">Парабола</option>
+          <option value="step">Ступенька</option>
+          <option value="sawtooth">Пила</option>
+          <option value="abs">|x|</option>
+        </select>
+      </label>
+      <div style="height:8px"></div>
+      <label class="ctrl">
+        <span class="lbl">Топология сети</span>
+        <select id="sel-topology">
+          <option value="small">[1→8→8→1]</option>
+          <option value="medium" selected>[1→16→16→1]</option>
+          <option value="deep">[1→8→8→8→1]</option>
+          <option value="wide">[1→32→32→1]</option>
+        </select>
+      </label>
+      <div style="height:8px"></div>
+      <label class="ctrl">
+        <span class="lbl">Активация</span>
+        <select id="sel-activation">
+          <option value="tanh" selected>Tanh</option>
+          <option value="relu">ReLU</option>
+          <option value="sigmoid">Sigmoid</option>
+          <option value="leaky">Leaky ReLU</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Гиперпараметры -->
+    <div class="panel">
+      <h2>Гиперпараметры</h2>
+
+      <label class="ctrl">
+        <span class="lbl">Скорость обучения<b id="lbl-lr">0.010</b></span>
+        <input type="range" id="sl-lr" min="-4" max="-1" step="0.01" value="-2">
+      </label>
+
+      <div style="height:10px"></div>
+
+      <label class="ctrl">
+        <span class="lbl">Момент (momentum)<b id="lbl-mom">0.90</b></span>
+        <input type="range" id="sl-mom" min="0" max="0.99" step="0.01" value="0.90">
+      </label>
+
+      <div style="height:10px"></div>
+
+      <label class="ctrl">
+        <span class="lbl">Размер батча<b id="lbl-bs">32</b></span>
+        <input type="range" id="sl-bs" min="1" max="7" step="1" value="5">
+      </label>
+
+      <div style="height:10px"></div>
+
+      <label class="ctrl">
+        <span class="lbl">L2 регуляризация<b id="lbl-l2">0.000</b></span>
+        <input type="range" id="sl-l2" min="0" max="0.01" step="0.0001" value="0">
+      </label>
+
+      <div style="height:10px"></div>
+
+      <label class="ctrl">
+        <span class="lbl">Скорость отображения<b id="lbl-spd">10x</b></span>
+        <input type="range" id="sl-spd" min="1" max="100" step="1" value="10">
+      </label>
+    </div>
+
+    <!-- Управление -->
+    <div class="panel">
+      <h2>Управление</h2>
+      <div class="btn-group">
+        <button id="btn-start"  class="btn-green">▶ Старт</button>
+        <button id="btn-pause"  class="btn-orange" disabled>⏸ Пауза</button>
+      </div>
+      <div style="height:8px"></div>
+      <div class="btn-group three">
+        <button id="btn-step"   class="btn-secondary">⏭ Шаг</button>
+        <button id="btn-reset"  class="btn-secondary">↺ Сброс</button>
+        <button id="btn-export" class="btn-purple">⬇ CSV</button>
+      </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="panel">
+      <h2>Статистика</h2>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="val" id="st-epoch">0</div><div class="key">Эпоха</div></div>
+        <div class="stat-box"><div class="val" id="st-loss">—</div><div class="key">Потери</div></div>
+        <div class="stat-box"><div class="val" id="st-best">—</div><div class="key">Лучшие</div></div>
+        <div class="stat-box"><div class="val" id="st-ips">0</div><div class="key">Ит/сек</div></div>
+        <div class="stat-box"><div class="val" id="st-time">0с</div><div class="key">Время</div></div>
+        <div class="stat-box"><div class="val" id="st-params">0</div><div class="key">Параметры</div></div>
+      </div>
+    </div>
+
+    <!-- Легенда градиентов -->
+    <div class="panel">
+      <h2>Легенда</h2>
+      <div style="display:flex; flex-direction:column; gap:5px; font-size:11px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width:12px;height:12px;border-radius:50%;background:#4f8ef7;flex-shrink:0"></div>
+          Целевая функция
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width:12px;height:12px;border-radius:50%;background:#f7a24f;flex-shrink:0"></div>
+          Аппроксимация сети
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width:12px;height:12px;border-radius:50%;background:#3ecf8e;flex-shrink:0"></div>
+          Градиентный спуск (шар)
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width:12px;height:12px;border-radius:50%;background:#f75f5f;flex-shrink:0"></div>
+          Потери (MSE)
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== ОСНОВНАЯ ОБЛАСТЬ ===== -->
+  <div class="content-area">
+
+    <!-- Верхний ряд: потери + аппроксимация -->
+    <div class="canvas-row">
+      <div class="panel">
+        <h2>Кривая потерь (MSE)</h2>
+        <div class="canvas-wrap">
+          <canvas id="loss-canvas" height="200"></canvas>
+          <div class="tooltip" id="loss-tip"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Аппроксимация функции</h2>
+        <div class="canvas-wrap">
+          <canvas id="approx-canvas" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Средний ряд: ландшафт + нейронная сеть -->
+    <div class="canvas-row">
+      <div class="panel">
+        <h2>Ландшафт потерь (2D проекция)</h2>
+        <div class="canvas-wrap">
+          <canvas id="landscape-canvas" height="200"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Нейронная сеть (обратное распространение)</h2>
+        <div class="canvas-wrap">
+          <canvas id="net-canvas" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Нижний ряд: heatmap + gradient flow -->
+    <div class="canvas-row">
+      <div class="panel">
+        <h2>Тепловая карта весов и градиентов</h2>
+        <div class="canvas-wrap">
+          <canvas id="heatmap-canvas" height="200"></canvas>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Поток градиентов по слоям</h2>
+        <div class="canvas-wrap">
+          <canvas id="gradflow-canvas" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content-area -->
+</div><!-- /main-grid -->
+
+<script>
+// ================================================================
+// ВСПОМОГАТЕЛЬНЫЕ УТИЛИТЫ
+// ================================================================
+
+/** Зажать число в диапазон [min, max] */
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/** Линейная интерполяция */
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/** Случайное число из нормального распределения (Box-Muller) */
+function randn() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+/** Инициализация весов He (для ReLU) или Xavier (для tanh/sigmoid) */
+function initWeights(fanIn, fanOut, activation) {
+  const scale = (activation === 'relu' || activation === 'leaky')
+    ? Math.sqrt(2 / fanIn)
+    : Math.sqrt(1 / fanIn);
+  return Array.from({ length: fanIn * fanOut }, () => randn() * scale);
+}
+
+// ================================================================
+// НЕЙРОННАЯ СЕТЬ
+// ================================================================
+
+class NeuralNetwork {
+  /**
+   * @param {number[]} topology - массив размеров слоёв, напр. [1, 16, 16, 1]
+   * @param {string}   activation - тип активации
+   */
+  constructor(topology, activation = 'tanh') {
+    this.topology   = topology;
+    this.activation = activation;
+    this.numLayers  = topology.length;
+    this._build();
+  }
+
+  _build() {
+    const { topology, activation } = this;
+    this.weights  = []; // W[l]: Float64Array, размер [in × out]
+    this.biases   = []; // b[l]: Float64Array, размер [out]
+    this.dW       = []; // градиенты весов
+    this.db       = []; // градиенты смещений
+    this.vW       = []; // скорости (момент)
+    this.vb       = [];
+    this.acts     = []; // активации каждого слоя
+    this.preacts  = []; // предактивационные значения
+
+    for (let l = 0; l < this.numLayers - 1; l++) {
+      const fanIn  = topology[l];
+      const fanOut = topology[l + 1];
+      this.weights.push(initWeights(fanIn, fanOut, activation));
+      this.biases.push(new Array(fanOut).fill(0));
+      this.dW.push(new Array(fanIn * fanOut).fill(0));
+      this.db.push(new Array(fanOut).fill(0));
+      this.vW.push(new Array(fanIn * fanOut).fill(0));
+      this.vb.push(new Array(fanOut).fill(0));
+    }
+  }
+
+  // ---- Функции активации ----
+  activate(x) {
+    switch (this.activation) {
+      case 'relu':    return Math.max(0, x);
+      case 'leaky':   return x > 0 ? x : 0.01 * x;
+      case 'sigmoid': return 1 / (1 + Math.exp(-clamp(x, -20, 20)));
+      default:        return Math.tanh(clamp(x, -20, 20)); // tanh
+    }
+  }
+
+  activateDeriv(preact) {
+    switch (this.activation) {
+      case 'relu':    return preact > 0 ? 1 : 0;
+      case 'leaky':   return preact > 0 ? 1 : 0.01;
+      case 'sigmoid': { const s = 1 / (1 + Math.exp(-clamp(preact, -20, 20))); return s * (1 - s); }
+      default:        { const t = Math.tanh(clamp(preact, -20, 20)); return 1 - t * t; }
+    }
+  }
+
+  /** Прямой проход, сохраняет активации для обратного */
+  forward(input) {
+    this.acts    = [input.slice()];
+    this.preacts = [null]; // у входного слоя нет предактивации
+
+    let cur = input.slice();
+    for (let l = 0; l < this.weights.length; l++) {
+      const fanIn  = this.topology[l];
+      const fanOut = this.topology[l + 1];
+      const W = this.weights[l];
+      const b = this.biases[l];
+      const z = new Array(fanOut);
+      const a = new Array(fanOut);
+
+      for (let j = 0; j < fanOut; j++) {
+        let sum = b[j];
+        for (let i = 0; i < fanIn; i++) sum += W[i * fanOut + j] * cur[i];
+        z[j] = sum;
+        // Выходной слой — линейный
+        a[j] = (l === this.weights.length - 1) ? sum : this.activate(sum);
+      }
+
+      this.preacts.push(z);
+      this.acts.push(a);
+      cur = a;
+    }
+    return cur;
+  }
+
+  /**
+   * Обратный проход (MSE)
+   * @param {number[]} target  - желаемый вывод
+   * @param {number}   l2      - L2 регуляризация
+   * @returns {number} потери MSE
+   */
+  backward(target, l2 = 0) {
+    const out  = this.acts[this.numLayers - 1];
+    const loss = out.reduce((s, o, i) => s + (o - target[i]) ** 2, 0) / out.length;
+
+    // Начальная дельта для выходного слоя (dL/dz, выходной линейный)
+    let delta = out.map((o, i) => 2 * (o - target[i]) / out.length);
+
+    // Обнуляем накопленные градиенты
+    for (let l = 0; l < this.dW.length; l++) {
+      this.dW[l].fill(0);
+      this.db[l].fill(0);
+    }
+
+    // Идём назад по слоям
+    for (let l = this.weights.length - 1; l >= 0; l--) {
+      const fanIn  = this.topology[l];
+      const fanOut = this.topology[l + 1];
+      const W      = this.weights[l];
+      const aIn    = this.acts[l];
+      const z      = this.preacts[l + 1];
+
+      // Если не последний слой — умножаем на производную активации
+      const d = (l === this.weights.length - 1)
+        ? delta.slice()
+        : delta.map((dv, j) => dv * this.activateDeriv(z[j]));
+
+      // Градиенты весов и смещений
+      for (let j = 0; j < fanOut; j++) {
+        this.db[l][j] += d[j];
+        for (let i = 0; i < fanIn; i++) {
+          this.dW[l][i * fanOut + j] += d[j] * aIn[i];
+        }
+      }
+
+      // Распространяем дельту назад (для не-входного слоя)
+      if (l > 0) {
+        const newDelta = new Array(fanIn).fill(0);
+        for (let i = 0; i < fanIn; i++) {
+          for (let j = 0; j < fanOut; j++) {
+            newDelta[i] += W[i * fanOut + j] * d[j];
+          }
+        }
+        delta = newDelta;
+      }
+    }
+
+    // L2 регуляризация
+    if (l2 > 0) {
+      for (let l = 0; l < this.weights.length; l++) {
+        for (let k = 0; k < this.weights[l].length; k++) {
+          this.dW[l][k] += 2 * l2 * this.weights[l][k];
+        }
+      }
+    }
+
+    return loss;
+  }
+
+  /**
+   * Шаг SGD с моментом
+   * @param {number} lr       - скорость обучения
+   * @param {number} momentum - момент
+   * @param {number} batchN   - размер батча (нормировка)
+   */
+  updateWeights(lr, momentum, batchN = 1) {
+    for (let l = 0; l < this.weights.length; l++) {
+      for (let k = 0; k < this.weights[l].length; k++) {
+        const g = this.dW[l][k] / batchN;
+        this.vW[l][k] = momentum * this.vW[l][k] - lr * g;
+        this.weights[l][k] += this.vW[l][k];
+      }
+      for (let k = 0; k < this.biases[l].length; k++) {
+        const g = this.db[l][k] / batchN;
+        this.vb[l][k] = momentum * this.vb[l][k] - lr * g;
+        this.biases[l][k] += this.vb[l][k];
+      }
+    }
+  }
+
+  /** Число параметров */
+  get numParams() {
+    return this.weights.reduce((s, w) => s + w.length, 0)
+         + this.biases.reduce((s, b) => s + b.length, 0);
+  }
+
+  /** Среднее |градиент| по каждому слою */
+  get layerGradMags() {
+    return this.dW.map(dw => {
+      const s = dw.reduce((a, v) => a + Math.abs(v), 0);
+      return s / dw.length;
+    });
+  }
+}
+
+// ================================================================
+// ЦЕЛЕВЫЕ ФУНКЦИИ
+// ================================================================
+
+const FUNCTIONS = {
+  sine:     x => Math.sin(2 * Math.PI * x),
+  parabola: x => 4 * x * x - 1,
+  step:     x => x < 0 ? -0.8 : 0.8,
+  sawtooth: x => 2 * (x - Math.floor(x + 0.5)),
+  abs:      x => Math.abs(2 * x),
+};
+
+/** Генерируем обучающий набор в диапазоне [-1, 1] */
+function generateDataset(funcName, n = 256) {
+  const fn = FUNCTIONS[funcName];
+  return Array.from({ length: n }, (_, i) => {
+    const x = -1 + 2 * i / (n - 1);
+    return { x, y: fn(x) };
+  });
+}
+
+// ================================================================
+// ТОПОЛОГИИ
+// ================================================================
+
+const TOPOLOGIES = {
+  small:  [1, 8,  8,  1],
+  medium: [1, 16, 16, 1],
+  deep:   [1, 8,  8,  8, 1],
+  wide:   [1, 32, 32, 1],
+};
+
+// ================================================================
+// СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+// ================================================================
+
+const state = {
+  net:         null,
+  dataset:     [],
+  epoch:       0,
+  loss:        Infinity,
+  bestLoss:    Infinity,
+  lossHistory: [],
+  running:     false,
+  paused:      false,
+  startTime:   0,
+  ipsCounter:  0,
+  ipsTime:     0,
+  ips:         0,
+  rafId:       null,
+
+  // Параметры обучения
+  lr:         0.01,
+  momentum:   0.90,
+  batchSize:  32,
+  l2:         0,
+  speed:      10,
+  funcName:   'sine',
+  topology:   'medium',
+  activation: 'tanh',
+
+  // Для ландшафта — позиция "шара"
+  ballPos:  { x: 0, y: 0 },
+  ballVel:  { x: 0, y: 0 },
+
+  // Для подсветки обратного распространения
+  bpAlpha: [], // интенсивность свечения нейронов [слой][нейрон]
+};
+
+// ================================================================
+// УПРАВЛЕНИЕ КАНВАСАМИ
+// ================================================================
+
+function getCanvas(id) {
+  const el = document.getElementById(id);
+  return { el, ctx: el.getContext('2d') };
+}
+
+/** Правильно задать физический размер HiDPI */
+function resizeCanvas(el) {
+  const ratio  = window.devicePixelRatio || 1;
+  const rect   = el.getBoundingClientRect();
+  const w      = Math.floor(rect.width  || el.offsetWidth  || 300);
+  const h      = parseInt(el.getAttribute('height')) || 200;
+  el.width     = w * ratio;
+  el.height    = h * ratio;
+  el.style.height = h + 'px';
+  const ctx    = el.getContext('2d');
+  ctx.scale(ratio, ratio);
+  return { w, h };
+}
+
+// ================================================================
+// ОТРИСОВКА: КРИВАЯ ПОТЕРЬ
+// ================================================================
+
+function drawLossChart() {
+  const { el, ctx } = getCanvas('loss-canvas');
+  const { w, h }    = resizeCanvas(el);
+  const pad = { t: 12, r: 14, b: 28, l: 48 };
+  const iw  = w - pad.l - pad.r;
+  const ih  = h - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Фон
+  ctx.fillStyle = '#0d0f14';
+  ctx.fillRect(0, 0, w, h);
+
+  const hist = state.lossHistory;
+  if (hist.length < 2) {
+    ctx.fillStyle = '#6b7199';
+    ctx.font = '12px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText('Начните обучение', w / 2, h / 2);
+    return;
+  }
+
+  const maxLoss = Math.max(...hist) * 1.05 || 1;
+  const minLoss = 0;
+
+  // Сетка
+  ctx.strokeStyle = '#1c2030';
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + ih * (1 - i / 4);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y);
+    ctx.lineTo(pad.l + iw, y);
+    ctx.stroke();
+    // Подпись оси Y
+    ctx.fillStyle   = '#6b7199';
+    ctx.font        = '10px Segoe UI';
+    ctx.textAlign   = 'right';
+    const val = minLoss + (maxLoss - minLoss) * i / 4;
+    ctx.fillText(val.toFixed(4), pad.l - 4, y + 3);
+  }
+
+  // Ось X — подписи эпох
+  ctx.fillStyle = '#6b7199';
+  ctx.font      = '10px Segoe UI';
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 4; i++) {
+    const x   = pad.l + iw * i / 4;
+    const idx = Math.floor((hist.length - 1) * i / 4);
+    ctx.fillText(idx, x, h - pad.b + 14);
+  }
+
+  // Подписи осей
+  ctx.fillStyle   = '#6b7199';
+  ctx.font        = '10px Segoe UI';
+  ctx.textAlign   = 'center';
+  ctx.fillText('Эпоха', pad.l + iw / 2, h - 2);
+
+  ctx.save();
+  ctx.translate(12, pad.t + ih / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('MSE', 0, 0);
+  ctx.restore();
+
+  // Кривая потерь
+  ctx.beginPath();
+  ctx.strokeStyle = '#f75f5f';
+  ctx.lineWidth   = 2;
+  ctx.lineJoin    = 'round';
+  hist.forEach((loss, i) => {
+    const x = pad.l + iw * i / (hist.length - 1);
+    const y = pad.t + ih * (1 - (loss - minLoss) / (maxLoss - minLoss || 1));
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Заливка под кривой
+  ctx.lineTo(pad.l + iw, pad.t + ih);
+  ctx.lineTo(pad.l,      pad.t + ih);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ih);
+  grad.addColorStop(0,   'rgba(247,95,95,0.25)');
+  grad.addColorStop(1,   'rgba(247,95,95,0.02)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Маркер текущей точки
+  if (hist.length > 0) {
+    const lx = pad.l + iw;
+    const ly = pad.t + ih * (1 - (hist[hist.length - 1] - minLoss) / (maxLoss - minLoss || 1));
+    ctx.beginPath();
+    ctx.arc(lx, ly, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#f75f5f';
+    ctx.fill();
+  }
+}
+
+// ================================================================
+// ОТРИСОВКА: АППРОКСИМАЦИЯ
+// ================================================================
+
+function drawApprox() {
+  const { el, ctx } = getCanvas('approx-canvas');
+  const { w, h }    = resizeCanvas(el);
+  const pad = { t: 12, r: 14, b: 28, l: 40 };
+  const iw  = w - pad.l - pad.r;
+  const ih  = h - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#0d0f14';
+  ctx.fillRect(0, 0, w, h);
+
+  const fn = FUNCTIONS[state.funcName];
+
+  // Сетка и оси
+  ctx.strokeStyle = '#1c2030';
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + ih * i / 4;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + iw, y); ctx.stroke();
+    ctx.fillStyle = '#6b7199'; ctx.font = '10px Segoe UI'; ctx.textAlign = 'right';
+    ctx.fillText((1 - 2 * i / 4).toFixed(1), pad.l - 4, y + 3);
+  }
+  for (let i = 0; i <= 4; i++) {
+    const x = pad.l + iw * i / 4;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ih); ctx.stroke();
+    ctx.fillStyle = '#6b7199'; ctx.font = '10px Segoe UI'; ctx.textAlign = 'center';
+    ctx.fillText((-1 + 2 * i / 4).toFixed(1), x, h - pad.b + 14);
+  }
+
+  const N = 200;
+
+  /** Вспомогательная функция: перевод x∈[-1,1] в пиксель */
+  const px = x => pad.l + (x + 1) / 2 * iw;
+  const py = y => pad.t + (1 - y) / 2 * ih;
+
+  // Целевая функция
+  ctx.beginPath();
+  ctx.strokeStyle = '#4f8ef7';
+  ctx.lineWidth   = 2;
+  for (let i = 0; i <= N; i++) {
+    const x = -1 + 2 * i / N;
+    const y = fn(x);
+    i === 0 ? ctx.moveTo(px(x), py(y)) : ctx.lineTo(px(x), py(y));
+  }
+  ctx.stroke();
+
+  // Аппроксимация сети
+  if (state.net) {
+    ctx.beginPath();
+    ctx.strokeStyle = '#f7a24f';
+    ctx.lineWidth   = 2.5;
+    for (let i = 0; i <= N; i++) {
+      const x = -1 + 2 * i / N;
+      const y = state.net.forward([x])[0];
+      i === 0 ? ctx.moveTo(px(x), py(y)) : ctx.lineTo(px(x), py(y));
+    }
+    ctx.stroke();
+
+    // Лейблы
+    ctx.font = '11px Segoe UI'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#4f8ef7'; ctx.fillText('Цель', pad.l + 6, pad.t + 14);
+    ctx.fillStyle = '#f7a24f'; ctx.fillText('Сеть', pad.l + 6, pad.t + 28);
+  }
+}
+
+// ================================================================
+// ОТРИСОВКА: ЛАНДШАФТ ПОТЕРЬ (2D)
+// ================================================================
+
+/**
+ * Строим 2D сечение ландшафта потерь вдоль двух случайных направлений
+ * в пространстве параметров. Обновляется редко (тяжёлая операция).
+ */
+let landscapeCache  = null;
+let landscapeEpoch  = -999;
+
+function buildLandscape(net, dataset, resolution = 40) {
+  if (!net || dataset.length === 0) return null;
+
+  // Запоминаем текущие веса как центр
+  const centerW = net.weights.map(w => w.slice());
+  const centerB = net.biases.map(b => b.slice());
+
+  // Два случайных направления в пространстве параметров (нормированные)
+  const dirA = net.weights.map(w => w.map(() => randn()));
+  const dirB = net.weights.map(w => w.map(() => randn()));
+
+  // Нормируем
+  for (let l = 0; l < dirA.length; l++) {
+    const na = Math.sqrt(dirA[l].reduce((s, v) => s + v * v, 0)) || 1;
+    const nb = Math.sqrt(dirB[l].reduce((s, v) => s + v * v, 0)) || 1;
+    dirA[l] = dirA[l].map(v => v / na);
+    dirB[l] = dirB[l].map(v => v / nb);
+  }
+
+  const range  = 2.0;
+  const grid   = [];
+  let minL = Infinity, maxL = -Infinity;
+
+  for (let yi = 0; yi < resolution; yi++) {
+    grid.push([]);
+    for (let xi = 0; xi < resolution; xi++) {
+      const alpha = -range + 2 * range * xi / (resolution - 1);
+      const beta  = -range + 2 * range * yi / (resolution - 1);
+
+      // Смещаем веса
+      for (let l = 0; l < net.weights.length; l++) {
+        for (let k = 0; k < net.weights[l].length; k++) {
+          net.weights[l][k] = centerW[l][k]
+            + alpha * dirA[l][k]
+            + beta  * (dirB[l][k] || 0);
+        }
+      }
+
+      // Считаем потери на небольшой выборке
+      const sample = dataset.filter((_, i) => i % 8 === 0);
+      let loss = 0;
+      for (const pt of sample) {
+        const out = net.forward([pt.x]);
+        loss += (out[0] - pt.y) ** 2;
+      }
+      loss /= sample.length;
+      grid[yi].push(loss);
+      if (loss < minL) minL = loss;
+      if (loss > maxL) maxL = loss;
+    }
+  }
+
+  // Восстанавливаем веса
+  for (let l = 0; l < net.weights.length; l++) {
+    net.weights[l] = centerW[l].slice();
+    net.biases[l]  = centerB[l].slice();
+  }
+
+  return { grid, minL, maxL, resolution };
+}
+
+function drawLandscape() {
+  const { el, ctx } = getCanvas('landscape-canvas');
+  const { w, h }    = resizeCanvas(el);
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#0d0f14';
+  ctx.fillRect(0, 0, w, h);
+
+  // Перестраиваем каждые 80 эпох
+  if (!landscapeCache || (state.epoch - landscapeEpoch) > 80) {
+    landscapeCache = buildLandscape(state.net, state.dataset, 45);
+    landscapeEpoch = state.epoch;
+  }
+
+  if (!landscapeCache) return;
+
+  const { grid, minL, maxL, resolution } = landscapeCache;
+  const cellW = w / resolution;
+  const cellH = h / resolution;
+
+  // Рисуем тепловую карту ландшафта
+  for (let yi = 0; yi < resolution; yi++) {
+    for (let xi = 0; xi < resolution; xi++) {
+      const t = (grid[yi][xi] - minL) / (maxL - minL + 1e-12);
+      // Цветовая карта: тёмно-синий → голубой → жёлтый → красный
+      let r, g, b;
+      if (t < 0.25)      { const s = t * 4;       r = lerp(10,  30,  s); g = lerp(15,  100, s); b = lerp(40,  200, s); }
+      else if (t < 0.5)  { const s = (t - .25)*4; r = lerp(30,  200, s); g = lerp(100, 220, s); b = lerp(200, 50,  s); }
+      else if (t < 0.75) { const s = (t - .5)*4;  r = lerp(200, 240, s); g = lerp(220, 140, s); b = lerp(50,  20,  s); }
+      else               { const s = (t - .75)*4; r = lerp(240, 200, s); g = lerp(140, 20,  s); b = lerp(20,  20,  s); }
+
+      ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
+      ctx.fillRect(xi * cellW, (resolution - 1 - yi) * cellH, Math.ceil(cellW) + 1, Math.ceil(cellH) + 1);
+    }
+  }
+
+  // Рисуем контурные линии
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth   = 0.5;
+  const levels    = 8;
+  for (let lv = 1; lv < levels; lv++) {
+    const threshold = minL + (maxL - minL) * lv / levels;
+    // Упрощённая марширующая визуализация (только горизонтальные/вертикальные переходы)
+    for (let yi = 0; yi < resolution - 1; yi++) {
+      for (let xi = 0; xi < resolution - 1; xi++) {
+        const v00 = grid[yi][xi];
+        const v10 = grid[yi][xi + 1];
+        const v01 = grid[yi + 1][xi];
+        if ((v00 < threshold) !== (v10 < threshold)) {
+          const t   = (threshold - v00) / (v10 - v00 + 1e-12);
+          const px  = (xi + t) * cellW;
+          const py  = (resolution - 1 - yi) * cellH;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(px, py + cellH);
+          ctx.stroke();
+        }
+        if ((v00 < threshold) !== (v01 < threshold)) {
+          const t   = (threshold - v00) / (v01 - v00 + 1e-12);
+          const px  = xi * cellW;
+          const py  = (resolution - 1 - (yi + t)) * cellH;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(px + cellW, py);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // Шар — текущая позиция в пространстве потерь
+  // Нормализуем текущие потери в координаты карты
+  const bx = w * 0.5 + state.ballPos.x * (w * 0.15);
+  const by = h * 0.5 - state.ballPos.y * (h * 0.15);
+  const bxc = clamp(bx, 8, w - 8);
+  const byc = clamp(by, 8, h - 8);
+
+  ctx.beginPath();
+  ctx.arc(bxc, byc, 7, 0, Math.PI * 2);
+  const ballGrad = ctx.createRadialGradient(bxc - 2, byc - 2, 1, bxc, byc, 7);
+  ballGrad.addColorStop(0, '#afffcf');
+  ballGrad.addColorStop(1, '#3ecf8e');
+  ctx.fillStyle   = ballGrad;
+  ctx.shadowColor = '#3ecf8e';
+  ctx.shadowBlur  = 12;
+  ctx.fill();
+  ctx.shadowBlur  = 0;
+
+  // Метка
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font      = '10px Segoe UI';
+  ctx.textAlign = 'center';
+  ctx.fillText('Текущая точка', bxc, byc + 20);
+}
+
+// ================================================================
+// ОТРИСОВКА: НЕЙРОННАЯ СЕТЬ С ПОДСВЕТКОЙ ОБРАТНОГО РАСПРОСТРАНЕНИЯ
+// ================================================================
+
+function drawNetwork() {
+  const { el, ctx } = getCanvas('net-canvas');
+  const { w, h }    = resizeCanvas(el);
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#0d0f14';
+  ctx.fillRect(0, 0, w, h);
+
+  if (!state.net) return;
+
+  const topology = state.net.topology;
+  const numL     = topology.length;
+  const padX     = 30, padY = 20;
+  const xStep    = (w - 2 * padX) / (numL - 1);
+
+  // Позиции нейронов
+  const positions = topology.map((count, li) => {
+    const cx   = padX + li * xStep;
+    const maxN = Math.min(count, 12); // ограничение для отображения
+    const step = (h - 2 * padY) / (maxN + 1);
+    return Array.from({ length: maxN }, (_, ni) => ({
+      x: cx,
+      y: padY + (ni + 1) * step,
+      real: ni,
+    }));
+  });
+
+  // Рисуем веса (связи)
+  for (let li = 0; li < numL - 1; li++) {
+    const fromL = positions[li];
+    const toL   = positions[li + 1];
+    const W     = state.net.weights[li];
+    const fanIn  = state.net.topology[li];
+    const fanOut = state.net.topology[li + 1];
+
+    for (const from of fromL) {
+      for (const to of toL) {
+        const wVal  = W[from.real * fanOut + to.real] || 0;
+        const alpha = clamp(Math.abs(wVal) * 0.3, 0.03, 0.6);
+        const color = wVal > 0 ? `rgba(79,142,247,${alpha})` : `rgba(247,95,95,${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x,   to.y);
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = clamp(Math.abs(wVal) * 0.6, 0.3, 2.5);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Рисуем нейроны
+  for (let li = 0; li < numL; li++) {
+    const neurons = positions[li];
+    const bpA     = state.bpAlpha[li] || [];
+
+    neurons.forEach((n, ni) => {
+      const glow   = bpA[ni] || 0;
+      const radius = 7;
+
+      // Свечение при обратном распространении
+      if (glow > 0.05) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, radius + 6 * glow, 0, Math.PI * 2);
+        const glowGrad = ctx.createRadialGradient(n.x, n.y, radius, n.x, n.y, radius + 10);
+        glowGrad.addColorStop(0, `rgba(124,92,247,${glow * 0.7})`);
+        glowGrad.addColorStop(1, 'rgba(124,92,247,0)');
+        ctx.fillStyle = glowGrad;
+        ctx.fill();
+      }
+
+      // Активация нейрона
+      const actVal = (state.net.acts[li] && state.net.acts[li][ni] !== undefined)
+        ? state.net.acts[li][ni] : 0;
+      const t = (actVal + 1) / 2; // нормируем в [0,1]
+
+      const nodeGrad = ctx.createRadialGradient(n.x - 2, n.y - 2, 1, n.x, n.y, radius);
+      const r = lerp(30,  100, t) | 0;
+      const g = lerp(40,  200, t) | 0;
+      const b = lerp(100, 220, t) | 0;
+      nodeGrad.addColorStop(0, `rgb(${Math.min(r+60,255)},${Math.min(g+60,255)},${Math.min(b+60,255)})`);
+      nodeGrad.addColorStop(1, `rgb(${r},${g},${b})`);
+
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle   = nodeGrad;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255,255,255,0.25)`;
+      ctx.lineWidth   = 1;
+      ctx.stroke();
+    });
+
+    // Подпись слоя
+    ctx.fillStyle = '#6b7199';
+    ctx.font      = '9px Segoe UI';
+    ctx.textAlign = 'center';
+    const label   = li === 0 ? 'Вход' : li === numL - 1 ? 'Выход' : `Скрытый ${li}`;
+    ctx.fillText(label, neurons[0]?.x ?? (padX + li * xStep), h - 6);
+  }
+}
+
+// ================================================================
+// ОТРИСОВКА: ТЕПЛОВАЯ КАРТА ВЕСОВ / ГРАДИЕНТОВ
+// ================================================================
+
+function drawHeatmap() {
+  const { el, ctx } = getCanvas('heatmap-canvas');
+  const { w, h }    = resizeCanvas(el);
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#0d0f14';
+  ctx.fillRect(0, 0, w, h);
+
+  if (!state.net) return;
+
+  const layers  = state.net.weights;
+  const dW      = state.net.dW;
+  const numL    = layers.length;
+  const padX    = 6, padY = 20;
+  const lw      = (w - 2 * padX - (numL - 1) * 4) / numL;
+
+  ctx.fillStyle = '#6b7199';
+  ctx.font      = '10px Segoe UI';
+  ctx.textAlign = 'center';
+
+  for (let li = 0; li < numL; li++) {
+    const W    = layers[li];
+    const G    = dW[li];
+    const fanIn  = state.net.topology[li];
+    const fanOut = state.net.topology[li + 1];
+    const bx   = padX + li * (lw + 4);
+    const by   = padY;
+    const bh   = h - padY - 20;
+
+    // Ограничиваем отображаемые нейроны
+    const showIn  = Math.min(fanIn,  20);
+    const showOut = Math.min(fanOut, 20);
+    const cw      = lw / showOut;
+    const ch      = bh / showIn;
+
+    // Максимум градиента для нормировки
+    let maxG = 0;
+    for (const g of G) if (Math.abs(g) > maxG) maxG = Math.abs(g);
+    maxG = maxG || 1;
+
+    for (let i = 0; i < showIn; i++) {
+      for (let j = 0; j < showOut; j++) {
+        const wv = W[i * fanOut + j] || 0;
+        const gv = G[i * fanOut + j] || 0;
+        const gt = Math.abs(gv) / maxG;
+
+        // Вес: синий (отриц) → нейтральный → красный (полож)
+        const wt = clamp((wv + 2) / 4, 0, 1);
+        let wr, wg, wb;
+        if (wt < 0.5) { const s = wt * 2;       wr = lerp(79,  150, s)|0; wg = lerp(142, 150, s)|0; wb = lerp(247, 150, s)|0; }
+        else           { const s = (wt - .5) * 2; wr = lerp(150, 247, s)|0; wg = lerp(150, 95,  s)|0; wb = lerp(150, 95,  s)|0; }
+
+        // Накладываем яркость градиента
+        const glow = gt * 0.7;
+        ctx.fillStyle = `rgba(${wr},${wg},${wb},${0.3 + glow * 0.7})`;
+        ctx.fillRect(bx + j * cw, by + i * ch, Math.ceil(cw), Math.ceil(ch));
+
+        // Рамка при большом градиенте
+        if (gt > 0.6) {
+          ctx.strokeStyle = `rgba(255,220,50,${gt * 0.8})`;
+          ctx.lineWidth   = 0.5;
+          ctx.strokeRect(bx + j * cw, by + i * ch, Math.ceil(cw), Math.ceil(ch));
+        }
+      }
+    }
+
+    // Метка
+    ctx.fillStyle = '#6b7199';
+    ctx.fillText(`W${li + 1}`, bx + lw / 2, h - 4);
+  }
+
+  // Шкала
+  const scaleW = 80, scaleH = 8;
+  const sx = w - scaleW - padX, sy = h - 16;
+  const scaleGrad = ctx.createLinearGradient(sx, 0, sx + scaleW, 0);
+  scaleGrad.addColorStop(0,   '#4f8ef7');
+  scaleGrad.addColorStop(0.5, '#2a2f45');
+  scaleGrad.addColorStop(1,   '#f75f5f');
+  ctx.fillStyle = scaleGrad;
+  ctx.fillRect(sx, sy, scaleW, scaleH);
+  ctx.fillStyle = '#6b7199';
+  ctx.font      = '9px Segoe UI';
+  ctx.textAlign = 'left';  ctx.fillText('−', sx, sy - 2);
+  ctx.textAlign = 'right'; ctx.fillText('+', sx + scaleW, sy - 2);
+  ctx.textAlign = 'center'; ctx.fillText('Веса', sx + scaleW / 2, sy - 2);
+}
+
+// ================================================================
+// ОТРИСОВКА: ПОТОК ГРАДИЕНТОВ
+// ================================================================
+
+function drawGradFlow() {
+  const { el, ctx } = getCanvas('gradflow-canvas');
+  const { w, h }    = resizeCanvas(el);
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#0d0f14';
+  ctx.fillRect(0, 0, w, h);
+
+  if (!state.net) return;
+
+  const mags  = state.net.layerGradMags;
+  const n     = mags.length;
+  if (n === 0) return;
+
+  const padX  = 50, padY = 16, padB = 36;
+  const iw    = w - padX - 16;
+  const ih    = h - padY - padB;
+  const bw    = iw / n - 4;
+  const maxM  = Math.max(...mags, 1e-6);
+
+  // Сетка
+  ctx.strokeStyle = '#1c2030';
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = padY + ih * i / 4;
+    ctx.beginPath(); ctx.moveTo(padX, y); ctx.lineTo(w - 16, y); ctx.stroke();
+    const val = maxM * (1 - i / 4);
+    ctx.fillStyle = '#6b7199'; ctx.font = '9px Segoe UI'; ctx.textAlign = 'right';
+    ctx.fillText(val.toExponential(1), padX - 4, y + 3);
+  }
+
+  // Ось Y
+  ctx.save();
+  ctx.translate(10, padY + ih / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#6b7199'; ctx.font = '9px Segoe UI'; ctx.textAlign = 'center';
+  ctx.fillText('|∇W| средн.', 0, 0);
+  ctx.restore();
+
+  // Столбцы
+  mags.forEach((m, i) => {
+    const x = padX + i * (iw / n) + 2;
+    const t = m / maxM;
+    const bh = t * ih;
+    const y  = padY + ih - bh;
+
+    // Цвет: зелёный (хорошо) → оранжевый (ок) → красный (взрыв)
+    let r, g, b;
+    if (t < 0.3)      { r = 62;  g = 207; b = 142; }
+    else if (t < 0.7) { r = 247; g = 162; b = 79;  }
+    else               { r = 247; g = 95;  b = 95;  }
+
+    // Вертикальный градиент
+    const barGrad = ctx.createLinearGradient(0, y, 0, y + bh);
+    barGrad.addColorStop(0, `rgba(${r},${g},${b},0.9)`);
+    barGrad.addColorStop(1, `rgba(${r},${g},${b},0.3)`);
+    ctx.fillStyle = barGrad;
+    ctx.fillRect(x, y, bw, bh);
+
+    // Нижняя метка
+    ctx.fillStyle = '#6b7199'; ctx.font = '9px Segoe UI'; ctx.textAlign = 'center';
+    ctx.fillText(`W${i + 1}`, x + bw / 2, padY + ih + 14);
+
+    // Значение над столбцом
+    if (bh > 14) {
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.font = '9px Segoe UI'; ctx.textAlign = 'center';
+      ctx.fillText(m.toExponential(1), x + bw / 2, y - 2);
+    }
+  });
+
+  // Предупреждение о затухании/взрыве
+  const maxMag = Math.max(...mags);
+  const minMag = Math.min(...mags);
+  let warn = '';
+  if (maxMag > 10)    warn = '⚠ Взрывной градиент!';
+  if (minMag < 1e-6)  warn = '⚠ Затухающий градиент!';
+  if (warn) {
+    ctx.fillStyle = '#f75f5f'; ctx.font = 'bold 11px Segoe UI'; ctx.textAlign = 'center';
+    ctx.fillText(warn, w / 2, h - 4);
+  }
+}
+
+// ================================================================
+// ОБНОВЛЕНИЕ ВСЕХ ВИЗУАЛИЗАЦИЙ
+// ================================================================
+
+function renderAll() {
+  drawLossChart();
+  drawApprox();
+  drawLandscape();
+  drawNetwork();
+  drawHeatmap();
+  drawGradFlow();
+}
+
+// ================================================================
+// ОБНОВЛЕНИЕ СТАТИСТИКИ
+// ================================================================
+
+function updateStats() {
+  document.getElementById('st-epoch').textContent  = state.epoch;
+  document.getElementById('st-loss').textContent   = state.loss === Infinity ? '—' : state.loss.toExponential(3);
+  document.getElementById('st-best').textContent   = state.bestLoss === Infinity ? '—' : state.bestLoss.toExponential(3);
+  document.getElementById('st-ips').textContent    = state.ips.toFixed(0);
+  const elapsed = state.startTime > 0 ? ((performance.now() - state.startTime) / 1000).toFixed(1) : '0';
+  document.getElementById('st-time').textContent   = elapsed + 'с';
+  document.getElementById('st-params').textContent = state.net ? state.net.numParams : 0;
+}
+
+// ================================================================
+// ОБНОВЛЕНИЕ СВЕЧЕНИЯ НЕЙРОНОВ (ОБРАТНОЕ РАСПРОСТРАНЕНИЕ)
+// ================================================================
+
+function updateBpAlpha() {
+  if (!state.net) return;
+  const topology = state.net.topology;
+  // Инициализируем если нужно
+  if (state.bpAlpha.length !== topology.length) {
+    state.bpAlpha = topology.map(n => new Array(Math.min(n, 12)).fill(0));
+  }
+  // Случайно «активируем» нейроны на основе величин градиентов
+  for (let l = 0; l < topology.length - 1; l++) {
+    const dw   = state.net.dW[l];
+    const fanOut = topology[l + 1];
+    const maxDw = Math.max(...dw.map(Math.abs), 1e-10);
+    for (let j = 0; j < Math.min(topology[l + 1], 12); j++) {
+      // Суммируем |dw| для нейрона j
+      let sumG = 0;
+      for (let i = 0; i < topology[l]; i++) sumG += Math.abs(dw[i * fanOut + j] || 0);
+      sumG /= (topology[l] * maxDw + 1e-10);
+      // Плавное затухание
+      state.bpAlpha[l + 1][j] = clamp(
+        state.bpAlpha[l + 1][j] * 0.7 + sumG * 0.5, 0, 1
+      );
+    }
+    // Входной слой
+    if (l === 0) {
+      state.bpAlpha[0][0] = clamp(state.bpAlpha[0][0] * 0.8 + 0.3, 0, 1);
+    }
+  }
+}
+
+// ================================================================
+// ОСНОВНОЙ ЦИКЛ ОБУЧЕНИЯ
+// ================================================================
+
+function trainStep() {
+  if (!state.net || !state.running || state.paused) return;
+
+  const { lr, momentum, batchSize, l2, speed, dataset } = state;
+  let totalLoss = 0;
+  let steps     = 0;
+
+  for (let s = 0; s < speed; s++) {
+    // Формируем батч
+    const batch = [];
+    for (let i = 0; i < batchSize; i++) {
+      batch.push(dataset[Math.floor(Math.random() * dataset.length)]);
+    }
+
+    // Обнуляем накопленные градиенты
+    state.net.dW.forEach(dw => dw.fill(0));
+    state.net.db.forEach(db => db.fill(0));
+
+    let batchLoss = 0;
+    for (const pt of batch) {
+      state.net.forward([pt.x]);
+      batchLoss += state.net.backward([pt.y], l2);
+    }
+
+    state.net.updateWeights(lr, momentum, batchSize);
+    totalLoss += batchLoss / batchSize;
+    steps++;
+    state.epoch++;
+  }
+
+  const avgLoss = totalLoss / steps;
+  state.loss = avgLoss;
+  if (avgLoss < state.bestLoss) state.bestLoss = avgLoss;
+  state.lossHistory.push(avgLoss);
+  if (state.lossHistory.length > 1000) state.lossHistory.splice(0, state.lossHistory.length - 1000);
+
+  // Обновляем шар на ландшафте (простое случайное движение с затуханием)
+  const lossDelta = state.lossHistory.length > 1
+    ? state.lossHistory[state.lossHistory.length - 1] - state.lossHistory[state.lossHistory.length - 2]
+    : 0;
+  state.ballVel.x = state.ballVel.x * 0.85 + (Math.random() - 0.5) * 0.1 - lossDelta * 0.5;
+  state.ballVel.y = state.ballVel.y * 0.85 + (Math.random() - 0.5) * 0.1 - lossDelta * 0.5;
+  state.ballPos.x = clamp(state.ballPos.x + state.ballVel.x * 0.3, -2, 2);
+  state.ballPos.y = clamp(state.ballPos.y + state.ballVel.y * 0.3, -2, 2);
+
+  // IPS
+  const now = performance.now();
+  state.ipsCounter += speed;
+  if (now - state.ipsTime > 500) {
+    state.ips     = state.ipsCounter / ((now - state.ipsTime) / 1000);
+    state.ipsCounter = 0;
+    state.ipsTime = now;
+  }
+
+  updateBpAlpha();
+}
+
+// ================================================================
+// АНИМАЦИОННЫЙ ЦИКЛ
+// ================================================================
+
+let lastRender = 0;
+
+function loop(ts) {
+  if (!state.running || state.paused) return;
+  trainStep();
+  // Рендеримся не чаще 30 fps
+  if (ts - lastRender > 33) {
+    renderAll();
+    updateStats();
+    lastRender = ts;
+  }
+  state.rafId = requestAnimationFrame(loop);
+}
+
+// ================================================================
+// ИНИЦИАЛИЗАЦИЯ
+// ================================================================
+
+function buildNet() {
+  const topology   = TOPOLOGIES[state.topology];
+  state.net        = new NeuralNetwork(topology, state.activation);
+  state.dataset    = generateDataset(state.funcName, 256);
+  state.epoch      = 0;
+  state.loss       = Infinity;
+  state.bestLoss   = Infinity;
+  state.lossHistory = [];
+  state.ballPos    = { x: (Math.random() - 0.5) * 3, y: (Math.random() - 0.5) * 3 };
+  state.ballVel    = { x: 0, y: 0 };
+  state.bpAlpha    = [];
+  landscapeCache   = null;
+  renderAll();
+  updateStats();
+}
+
+// ================================================================
+// УПРАВЛЕНИЕ ОБУЧЕНИЕМ
+// ================================================================
+
+function startTraining() {
+  if (!state.net) buildNet();
+  state.running    = true;
+  state.paused     = false;
+  state.startTime  = performance.now();
+  state.ipsTime    = performance.now();
+  state.ipsCounter = 0;
+  setStatus('running', 'Обучение…');
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-pause').disabled = false;
+  state.rafId = requestAnimationFrame(loop);
+}
+
+function pauseTraining() {
+  if (!state.running) return;
+  state.paused = !state.paused;
+  const btn    = document.getElementById('btn-pause');
+  if (state.paused) {
+    cancelAnimationFrame(state.rafId);
+    setStatus('paused', 'Пауза');
+    btn.textContent = '▶ Продолжить';
+  } else {
+    setStatus('running', 'Обучение…');
+    btn.textContent = '⏸ Пауза';
+    state.ipsTime   = performance.now();
+    state.rafId = requestAnimationFrame(loop);
+  }
+}
+
+function resetTraining() {
+  cancelAnimationFrame(state.rafId);
+  state.running = false;
+  state.paused  = false;
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-pause').disabled = true;
+  document.getElementById('btn-pause').textContent = '⏸ Пауза';
+  setStatus('idle', 'Готово');
+  buildNet();
+}
+
+function stepTraining() {
+  if (!state.net) buildNet();
+  if (state.running && !state.paused) return;
+  if (!state.running) {
+    state.running   = true;
+    state.startTime = performance.now();
+    state.ipsTime   = performance.now();
+  }
+  trainStep();
+  renderAll();
+  updateStats();
+  setStatus('paused', `Эпоха ${state.epoch}`);
+}
+
+function setStatus(cls, text) {
+  const badge = document.getElementById('status-badge');
+  badge.className = cls === 'running' ? 'running' : cls === 'paused' ? 'paused' : cls === 'done' ? 'done' : '';
+  document.getElementById('status-text').textContent = text;
+}
+
+// ================================================================
+// ЭКСПОРТ CSV
+// ================================================================
+
+function exportCsv() {
+  const rows  = ['epoch,loss'];
+  state.lossHistory.forEach((l, i) => rows.push(`${i},${l}`));
+  const blob  = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const url   = URL.createObjectURL(blob);
+  const a     = document.createElement('a');
+  a.href      = url;
+  a.download  = 'training_loss.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ================================================================
+// ЧТЕНИЕ СЛАЙДЕРОВ
+// ================================================================
+
+const bsSizes = [4, 8, 16, 32, 64, 128, 256];
+
+function readControls() {
+  const lrLog      = parseFloat(document.getElementById('sl-lr').value);
+  state.lr         = Math.pow(10, lrLog);
+  document.getElementById('lbl-lr').textContent = state.lr.toFixed(4);
+
+  state.momentum   = parseFloat(document.getElementById('sl-mom').value);
+  document.getElementById('lbl-mom').textContent = state.momentum.toFixed(2);
+
+  const bsIdx      = parseInt(document.getElementById('sl-bs').value) - 1;
+  state.batchSize  = bsSizes[bsIdx];
+  document.getElementById('lbl-bs').textContent = state.batchSize;
+
+  state.l2         = parseFloat(document.getElementById('sl-l2').value);
+  document.getElementById('lbl-l2').textContent = state.l2.toFixed(4);
+
+  state.speed      = parseInt(document.getElementById('sl-spd').value);
+  document.getElementById('lbl-spd').textContent = state.speed + 'x';
+}
+
+// ================================================================
+// НАВЕШИВАНИЕ СОБЫТИЙ
+// ================================================================
+
+document.getElementById('btn-start').addEventListener('click',  startTraining);
+document.getElementById('btn-pause').addEventListener('click',  pauseTraining);
+document.getElementById('btn-reset').addEventListener('click',  resetTraining);
+document.getElementById('btn-step').addEventListener('click',   stepTraining);
+document.getElementById('btn-export').addEventListener('click', exportCsv);
+
+['sl-lr', 'sl-mom', 'sl-bs', 'sl-l2', 'sl-spd'].forEach(id => {
+  document.getElementById(id).addEventListener('input', readControls);
+});
+
+document.getElementById('sel-func').addEventListener('change', e => {
+  state.funcName = e.target.value;
+  if (state.running) {
+    // Пересоздаём датасет, оставляем сеть
+    state.dataset      = generateDataset(state.funcName, 256);
+    landscapeCache     = null;
+    state.lossHistory  = [];
+    state.epoch        = 0;
+    state.bestLoss     = Infinity;
+  } else {
+    buildNet();
+  }
+});
+
+document.getElementById('sel-topology').addEventListener('change', e => {
+  state.topology = e.target.value;
+  resetTraining();
+});
+
+document.getElementById('sel-activation').addEventListener('change', e => {
+  state.activation = e.target.value;
+  resetTraining();
+});
+
+// ================================================================
+// АДАПТИВНЫЙ РЕСАЙЗ
+// ================================================================
+
+const resizeObserver = new ResizeObserver(() => {
+  if (!state.running) renderAll();
+});
+
+document.querySelectorAll('.panel').forEach(p => resizeObserver.observe(p));
+
+window.addEventListener('resize', () => {
+  landscapeCache = null;
+  renderAll();
+});
+
+// ================================================================
+// ТУЛТИП НА КРИВОЙ ПОТЕРЬ
+// ================================================================
+
+document.getElementById('loss-canvas').addEventListener('mousemove', e => {
+  const tip = document.getElementById('loss-tip');
+  const hist = state.lossHistory;
+  if (hist.length < 2) { tip.style.opacity = 0; return; }
+
+  const el   = e.currentTarget;
+  const rect = el.getBoundingClientRect();
+  const mx   = e.clientX - rect.left;
+  const iw   = rect.width - 62;
+  const idx  = Math.round((mx - 48) / iw * (hist.length - 1));
+  if (idx < 0 || idx >= hist.length) { tip.style.opacity = 0; return; }
+
+  tip.textContent    = `Эпоха: ${idx} | Потери: ${hist[idx].toExponential(4)}`;
+  tip.style.opacity  = '1';
+  tip.style.left     = Math.min(mx + 10, rect.width - 160) + 'px';
+  tip.style.top      = '4px';
+});
+
+document.getElementById('loss-canvas').addEventListener('mouseleave', () => {
+  document.getElementById('loss-tip').style.opacity = 0;
+});
+
+// ================================================================
+// СТАРТ
+// ================================================================
+
+readControls();
+buildNet();
+</script>
+</body>
+</html>
